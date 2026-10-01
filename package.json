@@ -1,0 +1,19 @@
+{
+  "name": "reading-machine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner --host 127.0.0.1",
+    "build": "tsc --noEmit && node scripts/copy-pdf-assets.mjs && vite build --configLoader runner",
+    "preview": "vite preview --configLoader runner --host 127.0.0.1",
+    "postinstall": "node scripts/copy-pdf-assets.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.4.624"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
