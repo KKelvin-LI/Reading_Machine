@@ -10,7 +10,7 @@
 | `vite.config.ts` | Build configuration and hosting base |
 | `.github/workflows/deploy.yml` | GitHub Pages deployment |
 
-- Reading Machine Website Url 
+- Reading Machine Website Url 'https://kkelvin-li.github.io/Reading_Machine/index.html'
 - `reader:page-rendered`: `{ page, scale, element }`, after the canvas and text layer are ready. Attach/reposition the 3D overlay here.
 - `reader:selection-changed`: `{ text, rects }`. Rectangles use viewport pixels; convert them to the overlay's coordinates. An empty `text` means selection has collapsed. A future module should also handle scrolling, deselection outside the page and returning home.
 
