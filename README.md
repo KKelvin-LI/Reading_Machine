@@ -28,7 +28,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open the local URL shown by Vite (normally http://127.0.0.1:5190/).
+Open the local URL shown by Vite (normally http://127.0.0.1:5191/).
 
 ```sh
 pnpm build
