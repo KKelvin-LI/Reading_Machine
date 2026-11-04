@@ -1,0 +1,47 @@
+/* All former 3D labels use the user's local Helvetica Neue Roman export. */
+@font-face{font-family:'Reading Helvetica';src:url('/fonts/HelveticaNeue-Roman.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+:root{--button-font:'Reading Helvetica','Helvetica Neue',Helvetica,Arial,sans-serif;--button-hover-size:86%;--button-hover-tracking:.0em}
+.home-navigation button,#reading-tools-toggle,.reading-tool-text,#highlights-toggle,.section-button{font-family:'Courier New',Courier,monospace!important;font-weight:400;font-style:normal!important}
+:is(.about-toggle,.history-toggle,#highlights-toggle) .about-button-label,.section-button-label{position:relative;z-index:3;visibility:visible!important;transform-origin:center;pointer-events:none}
+:is(.about-toggle,.history-toggle,#highlights-toggle).is-visual .about-button-label,.section-button.is-squishy .section-button-label{color:var(--button-label-colour,var(--section-text-colour));visibility:visible!important}
+.reading-tools.is-visual.model-ready :is(.reading-tools-label,.reading-tool-text){color:#326eb3;transform:translateY(calc(var(--label-press,0) * .06em))}
+.selection-wheel svg{position:relative;z-index:1;pointer-events:none}
+.selection-wheel.model-ready .is-hover{opacity:1}
+.selection-wheel.model-ready .is-hover .wheel-shape{opacity:0}
+.selection-wheel text{font-family:'Courier New',Courier,monospace;font-weight:400;font-style:normal}
+.selection-wheel .is-hover text{font-family:var(--button-font);font-size:22px;letter-spacing:var(--button-hover-tracking)}
+.wheel-model{z-index:0}
+.catch-message{color:var(--catch-text,#e7484d)}
+
+/* Change the label only, so the cushion's LS padding keeps its original scale. */
+:is(.about-toggle,.history-toggle,#highlights-toggle):hover .about-button-label,
+.section-button:hover .section-button-label,
+.reading-tools:hover :is(.reading-tools-label,.reading-tool-text){
+ font-family:var(--button-font)!important;
+ font-size:var(--button-hover-size)!important;
+ letter-spacing:var(--button-hover-tracking)!important;
+ font-weight:400!important;
+}
+.catch-message{font-family:var(--button-font)!important;font-weight:400}
+
+/* Let the real cushion silhouette gather inward during a press. */
+.section-button.is-squishy.model-ready{background:transparent;box-shadow:none}
+
+/* Keep navigation labels on one line; let the browser measure the loaded font. */
+:is(.about-toggle,.history-toggle,#highlights-toggle) .about-button-label{white-space:nowrap;flex-shrink:0}
+:is(.about-toggle,.history-toggle,#highlights-toggle).is-visual .about-button-label{width:max-content;min-width:var(--about-text-width,0px)}
+
+/* Home capsules start on the sidebar edge; 1LS surrounds the label box. */
+.about-enabled .home-navigation :is(.about-toggle,.history-toggle){justify-self:start;margin-left:0;transform:none;box-sizing:content-box;text-align:left}
+.about-enabled .home-navigation :is(.about-toggle,.history-toggle).is-visual{padding:var(--about-ls);width:max-content;max-width:none}
+.about-enabled .home-navigation .about-button-model{z-index:1}
+
+/* The label follows the cushion state, including the complete press/release. */
+:is(.about-toggle,.history-toggle,#highlights-toggle).is-visual .about-button-label,
+.reading-tools.is-visual :is(.reading-tools-label,.reading-tool-text),
+.section-button.is-squishy .section-button-label{
+ font-family:var(--button-font)!important;
+ font-size:var(--button-hover-size)!important;
+ letter-spacing:var(--button-hover-tracking)!important;
+ font-weight:400!important;
+}

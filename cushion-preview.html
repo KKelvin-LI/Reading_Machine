@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Cushion preview</title><style>body{margin:3%;font:16px Helvetica,Arial;background:#fff;color:#151410}main{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem}canvas{width:100%;display:block}p{color:#777}button{padding:.7em 1em}</style></head><body><h1>Inflated cushion buttons</h1><p>Rest → initial dent → gathered folds. Click a cushion to replay its press.</p><main></main><script type="module">
+import * as THREE from 'three';
+import {cushionGeometry,cushionMaterial,cushionWeights} from './src/three/cushion.ts';
+const colours=['#bae4ee','#f89823','#bda7d0'];
+for(const colour of colours)for(const pose of [0,1,2]){
+ const box=document.createElement('section');document.querySelector('main').append(box);
+ const r=new THREE.WebGLRenderer({alpha:true,antialias:true});r.setPixelRatio(Math.min(devicePixelRatio,2));r.setSize(360,180);box.append(r.domElement);
+ const s=new THREE.Scene(),c=new THREE.OrthographicCamera(-180,180,90,-90,.1,1000);c.position.z=500;
+ const m=new THREE.Mesh(cushionGeometry(320,115),cushionMaterial(colour));s.add(m);
+ const draw=()=>r.render(s,c);m.morphTargetInfluences[0]=pose===1?1:0;m.morphTargetInfluences[1]=pose===2?1:0;draw();
+ const caption=document.createElement('p');caption.textContent=['Resting','Initial dent','Full squeeze'][pose]+' · '+colour;box.append(caption);
+ let running=false;r.domElement.onclick=()=>{if(running)return;running=true;const start=performance.now();function frame(now){const t=Math.min(1,(now-start)/1500),w=cushionWeights(t);m.morphTargetInfluences[0]=w.dent;m.morphTargetInfluences[1]=w.gather;draw();if(t<1)requestAnimationFrame(frame);else running=false;}requestAnimationFrame(frame)};
+}
+</script></body></html>

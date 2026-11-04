@@ -1,0 +1,36 @@
+import { mountAbout } from '../about/controller';
+import { createMailbox, type MailboxView } from '../../three/home-mailbox';
+import { homeSettings } from '../../config/home';
+
+export function mountHome(input: HTMLInputElement, openReader: (file: File) => Promise<void>) {
+  const button = document.getElementById('choose-file') as HTMLButtonElement;
+  const home = document.getElementById('home')!;
+  mountAbout(home);
+  const status = document.getElementById('home-upload-status')!;
+  let view: MailboxView | undefined, busy = false, dragDepth = 0;
+  const ready = createMailbox(document.getElementById('mailbox-scene')!).then(v => {
+    view = v; button.classList.add('model-ready'); status.textContent = ''; return v;
+  }).catch(error => { console.error(error); status.textContent = '3D preview unavailable. Click to choose a PDF.'; return undefined; });
+  button.addEventListener('click', () => {
+    if (busy) return;
+    view?.click(); input.click(); // Native chooser must open inside the user click event.
+  });
+  async function accept(file: File) {
+    if (busy) return;
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') { status.textContent = 'Please choose a PDF file.'; return; }
+    if (file.size > homeSettings.maxFileBytes) { status.textContent = 'Please choose a PDF smaller than 100 MB.'; return; }
+    busy = true; button.setAttribute('aria-busy', 'true');
+    try {
+      const model = await ready;
+      status.textContent = 'Delivering your document…';
+      if (model) await model.deliver();
+      await openReader(file);
+    } catch (error) { console.error(error); status.textContent = 'Please try uploading your PDF again.'; }
+    finally { busy = false; button.removeAttribute('aria-busy'); view?.reset(); if (home.hidden) status.textContent = ''; }
+  }
+  button.addEventListener('dragenter', e => { if (!e.dataTransfer?.types.includes('Files')) return; e.preventDefault(); dragDepth++; button.classList.add('dragging'); });
+  button.addEventListener('dragover', e => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = busy ? 'none' : 'copy'; });
+  button.addEventListener('dragleave', () => { if (--dragDepth <= 0) button.classList.remove('dragging'); });
+  button.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); dragDepth = 0; button.classList.remove('dragging'); const file = e.dataTransfer?.files[0]; if (file) void accept(file); });
+  return { accept };
+}

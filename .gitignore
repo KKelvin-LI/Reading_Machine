@@ -2,4 +2,9 @@ node_modules/
 dist/
 public/pdfjs/
 .DS_Store
+.pnpm-store/
+.env*
 *.local
+
+node_modules
+public/models/about/inflated-alphabet.glb

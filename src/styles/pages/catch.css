@@ -1,0 +1,60 @@
+.catch-overlay { position:fixed; inset:0; z-index:1000; background:rgb(255 255 255 / 16%); backdrop-filter:blur(var(--catch-blur,10px)); -webkit-backdrop-filter:blur(var(--catch-blur,10px)); cursor:grab!important; }
+.catch-overlay[hidden] { display:none; }
+.catch-overlay * { cursor:inherit!important; }
+.catch-overlay.is-catching,.catch-overlay:active { cursor:grabbing!important; }
+.catch-frame { position:absolute; overflow:hidden; container-type:inline-size; }
+.catch-target { position:absolute; left:0; top:0; width:16.5%; aspect-ratio:1.65; border:0; padding:0; background:transparent; touch-action:manipulation; will-change:transform; }
+.catch-target:focus-visible { outline:.12em dashed #326eb3; outline-offset:.2em; border-radius:45%; }
+.catch-cloud-view,.catch-cloud-fallback,.catch-cloud-view canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+.catch-target.model-ready .catch-cloud-fallback { display:none; }
+.catch-message { position:absolute; left:13.9%; right:13.9%; bottom:9%; margin:0; text-align:center; font:400 3.55cqw/1.15 'Courier New',monospace; white-space:pre; pointer-events:none; }
+.catch-message .about-letter { height:1.15em; vertical-align:middle; }
+body.catch-open>.interaction-canvas,body.catch-open>.ruler-row,body.catch-open>.ruler-shadow { visibility:hidden; }
+
+.catch-target[hidden] { display:none; }
+
+.eaty-balloon-window{position:fixed;inset:0;z-index:2147483646;background:#fff;overflow:hidden;cursor:none}
+.eaty-balloon-window[hidden],.eaty-balloon[hidden],.balloon-pin[hidden]{display:none}
+.eaty-balloon-window p{position:absolute;bottom:4%;width:100%;text-align:center;font:14px 'Courier New',monospace;color:#555}
+.balloon-string{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.eaty-balloon{position:absolute;padding:0;border:0;background:none;cursor:none;outline-offset:4px}
+.eaty-balloon img{display:block;width:100%;height:100%;pointer-events:none}
+.eaty-shard{position:absolute;background-size:100% 100%;pointer-events:none}
+.balloon-pin{position:fixed;left:0;top:0;width:2px;height:38px;background:linear-gradient(90deg,#666,#fff,#777);transform-origin:top;pointer-events:none;z-index:2147483647;clip-path:polygon(50% 0,100% 100%,0 100%)}
+body.catch-open .finger-cursor{margin-top:27px}
+
+.pop-lettering{position:absolute;top:1.3%;left:50%;transform:translateX(-50%);width:min(46.656vw,492.48px);height:auto;pointer-events:none}
+
+.pop-lettering[hidden]{display:none}
+
+.catch-continuation{position:absolute;inset:0;background:white;display:grid;place-items:center}
+.catch-continuation .pop-lettering{top:1.3%;width:min(46.656vw,492.48px)}
+.continue-lines{width:min(80vw,900px);display:grid;gap:18px}
+.continue-lines button{font:inherit;font-size:inherit;text-align:left;padding:.8em 1em;background:#fcf068;border:0;border-radius:28px;color:#151410;cursor:pointer;transition:box-shadow .2s,background .2s;position:relative}
+.continue-lines button:hover,.continue-lines button:focus-visible{box-shadow:0 12px 30px #0003}
+.catch-continuation.is-pressing{background:#ddd}
+.continue-lines .chosen{box-shadow:0 22px 65px #0006;background:#e7484d;color:white}
+body.catch-open:has(.continuing) .finger-cursor{margin-top:0}
+
+.continue-lines{max-height:65vh;overflow:auto;box-sizing:border-box;padding:4px;gap:.8em}.continue-lines button{width:100%;box-sizing:border-box;overflow-wrap:anywhere;min-width:0}
+
+/* One continuation target containing the five saved reading lines. */
+.continue-lines .continue-reading-box{background:white;color:#151410;border:1.5px solid #151410;border-radius:22px;line-height:1.35;padding:.7em 1em;box-shadow:none}
+.continue-reading-line{display:block}
+.continue-lines .continue-reading-box:hover,.continue-lines .continue-reading-box:focus-visible{box-shadow:0 8px 24px #0002}
+.continue-lines .continue-reading-box.chosen{background:white;color:#151410;box-shadow:0 22px 65px #0006}
+
+.continue-lines .continue-reading-box{height:100%;padding:0;position:relative;box-sizing:border-box}
+.continue-lines .continue-reading-box:hover,.continue-lines .continue-reading-box:focus-visible,.continue-lines .continue-reading-box.chosen{box-shadow:0 0 35px 12px #e7484d66}
+.catch-continuation.is-pressing{background:white}
+
+.pop-lettering,.catch-continuation .pop-lettering{top:1.3%;width:auto;height:min(13.06368vw,137.8944px);max-width:96vw;object-fit:contain;object-position:top center}
+.continue-lines .continue-reading-box:hover,.continue-lines .continue-reading-box:focus-visible,.continue-lines .continue-reading-box.chosen{box-shadow:0 0 .4225em .078em #e7484d}
+
+.cc-mini-eaty{position:fixed;z-index:5;object-fit:contain;pointer-events:none;transform-origin:center}
+
+.catch-heading{position:absolute;top:1.3%;left:50%;transform:translateX(-50%);font:clamp(18px,3vw,42px)/1 'Courier New',monospace;color:#151410;white-space:nowrap;pointer-events:none}.catch-heading[hidden]{display:none}
+
+.catch-heading{font-size:var(--catch-heading-size,16px)}
+
+.catch-continuation.is-pressing .continue-reading-box{border-color:transparent;box-shadow:none}

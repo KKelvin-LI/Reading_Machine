@@ -1,0 +1,39 @@
+.selection-wheel { position:fixed; z-index:2147483646; user-select:none; touch-action:none; }
+.selection-wheel svg { display:block; width:100%; height:100%; overflow:visible; }
+.wheel-shape { fill:white; stroke:#151410; stroke-width:1.2; stroke-linejoin:round; }
+.selection-wheel text { fill:#151410; font:22px 'Courier New',monospace; pointer-events:none; }
+.selection-wheel [data-action] { outline:none; }
+.selection-wheel [data-action]:focus-visible .wheel-shape { stroke-width:3; }
+.selection-wheel .is-hover .wheel-shape { fill:var(--wheel-colour); stroke:var(--wheel-colour); }
+.selection-wheel .is-hover text { fill:var(--wheel-text); }
+.selection-wheel.model-ready .is-hover { opacity:0; }
+.wheel-model { position:absolute; inset:0; pointer-events:none; }
+.wheel-model canvas { display:block; width:100%; height:100%; }
+.wheel-status { position:fixed; bottom:7%; left:27%; right:2%; z-index:2147483646; padding:.7em; background:white; color:#151410; box-shadow:0 .1em .5em #0002; }
+body:has(.selection-wheel-open) .interaction-canvas { z-index:2147483644; }
+
+.selection-wheel button[data-action] { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; background:transparent; z-index:2; }
+
+.selection-wheel, .selection-wheel * { cursor:none !important; }
+
+/* Temporary selection guidance; same open/closed hand as the Catch interaction. */
+body.awaiting-text-selection #reader,
+body.awaiting-text-selection #reader *,
+body.awaiting-text-selection .selection-wheel,
+body.awaiting-text-selection .selection-wheel * { cursor:none !important; }
+body.awaiting-text-selection.is-grabbing-text #reader,
+body.awaiting-text-selection.is-grabbing-text #reader *,
+body.awaiting-text-selection.is-grabbing-text .selection-wheel,
+body.awaiting-text-selection.is-grabbing-text .selection-wheel * { cursor:none !important; }
+
+.selection-wheel text { dominant-baseline:central; }
+
+.selection-wheel svg.wheel-elastic{position:absolute;inset:0;z-index:4;overflow:visible;pointer-events:none}
+
+.wheel-elastic.eaty-arriving>path{visibility:hidden}
+
+.wheel-ouch{position:fixed;z-index:2147483646;height:auto;pointer-events:none;user-select:none;transform-origin:center;object-fit:contain}
+.wheel-ouch[hidden]{display:none}
+
+.selection-wheel.is-retracting>svg:not(.wheel-elastic),.selection-wheel.is-retracting>.wheel-model,.selection-wheel.is-retracting>[data-action]{visibility:hidden}
+.selection-wheel.is-retracting{pointer-events:none}

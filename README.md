@@ -1,17 +1,49 @@
-## Where to refine things
+# The Reading Machine
 
-| File | Responsibility |
-| --- | --- |
-| `src/styles/tokens.css` | Colours, UI font, radii and shadows |
-| `src/styles/app.css` | Home/reader layouts and control styling |
-| `src/main.ts` | UI markup, document state and user actions |
-| `src/lib/pdf.ts` | PDF loading, canvas rendering and selectable text layer |
-| `src/lib/icons.ts` | Small interface icons |
-| `vite.config.ts` | Build configuration and hosting base |
-| `.github/workflows/deploy.yml` | GitHub Pages deployment |
+An interactive reading prototype featuring Eaty, highlighting and comments, reading tools, saved reading history, and a finishing animation.
 
-- Reading Machine Website Url 'https://kkelvin-li.github.io/Reading_Machine/'
-- `reader:page-rendered`: `{ page, scale, element }`, after the canvas and text layer are ready. Attach/reposition the 3D overlay here.
-- `reader:selection-changed`: `{ text, rects }`. Rectangles use viewport pixels; convert them to the overlay's coordinates. An empty `text` means selection has collapsed. A future module should also handle scrolling, deselection outside the page and returning home.
+## Try the website
 
-The text layer must stay interactive. A decorative canvas should use `pointer-events: none` until specific pointer interactions are implemented. Native text selection is temporary, not a saved annotation. No Three.js model, squishy effect, reading ruler or persistent highlight is included yet.
+**Live website:** [https://kkelvin-li.github.io/Reading_Machine/](https://kkelvin-li.github.io/Reading_Machine/)
+
+This prototype is designed specifically for **Draft 1.pdf**. Please use the supplied PDF; other documents are not supported reliably by the current section layout.
+
+1. [Download Draft 1.pdf](https://kkelvin-li.github.io/Reading_Machine/prototype/draft-1.pdf). If your browser opens the PDF, use its download/save button.
+2. Open [The Reading Machine](https://kkelvin-li.github.io/Reading_Machine/).
+3. Click Eaty to choose the downloaded PDF, or drag the PDF onto Eaty.
+4. Read through the sections to unlock the tools. At 100%, Eaty plays the finishing animation and the circular replay button becomes available.
+
+**PDF location in this repository:** [`public/prototype/draft-1.pdf`](public/prototype/draft-1.pdf)
+
+[Alternative direct PDF download](https://github.com/KKelvin-LI/Reading_Machine/raw/refs/heads/main/public/prototype/draft-1.pdf)
+
+Use a desktop browser with WebGL enabled for the full mouse and 3D interactions. Reading history and annotations are stored locally in that browser, not synced between devices.
+
+## Run locally
+
+Requires Node.js 24 and pnpm 10.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Open the local URL shown by Vite (normally http://127.0.0.1:5190/).
+
+```sh
+pnpm build
+pnpm preview
+```
+
+The build copies PDF.js fonts, character maps, and decoders into the website. GitHub Actions builds and deploys `dist/` to GitHub Pages whenever `main` is updated.
+
+## Project files
+
+- `src/pages/` — reader, history, highlights, comments, and completion behaviour
+- `src/three/` — Eaty and rendered interaction models
+- `src/styles/` — layout, palette, and typography
+- `public/models/` — 3D models and rendered assets
+- `public/prototype/draft-1.pdf` — supported demonstration PDF
+- `GUIDE.md` — development guide
+
+The large alphabet model is stored losslessly in `model-assets/` parts. Installation and production builds automatically reassemble it and verify its SHA-256 checksum.

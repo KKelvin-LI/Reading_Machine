@@ -1,0 +1,36 @@
+/* Reference: 8 equal columns; outer inset ≈ one gutter. */
+:root {
+  --grid-columns: 8;
+  --grid-gutter: 1.5%;
+  --grid-inset: 1.6%;
+  --frame-ratio: 16 / 9;
+}
+.design-frame {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 177.7778svh);
+  min-height: 0;
+  aspect-ratio: var(--frame-ratio);
+  margin-inline: auto;
+  container-type: inline-size;
+}
+.design-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  column-gap: var(--grid-gutter);
+  padding-inline: var(--grid-inset);
+}
+/* An optional overlay, never an interactive layer. */
+.grid-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  display: none;
+  padding: var(--grid-inset);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  column-gap: var(--grid-gutter);
+  background: rgb(105 191 100 / 28%);
+}
+.grid-guide > i { background: rgb(252 240 104 / 35%); }
+.show-design-grid .grid-guide { display: grid; }

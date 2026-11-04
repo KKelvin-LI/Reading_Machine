@@ -1,0 +1,92 @@
+.reader{--section-tab-height:calc(1em + 2 * var(--reader-ls));--section-left:calc(var(--grid-inset) + (100% - 2 * var(--grid-inset) + var(--grid-gutter)) / 4)}
+.section-tabs{position:absolute;left:var(--section-left);right:var(--grid-inset);top:0;display:grid;height:var(--section-tab-height);z-index:3;gap:0}
+.section-button{position:relative;min-width:0;height:var(--section-tab-height);box-sizing:border-box;padding:var(--reader-ls);border:.065em solid #151410;border-radius:.8em;background:white;color:#151410;box-shadow:inset 0 .06em .07em #ffffffd0,0 .06em .09em #15141030;font:inherit;line-height:1;letter-spacing:inherit;text-align:left;overflow:hidden;isolation:isolate}
+.section-button-label{display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;position:relative;z-index:1;font:inherit;line-height:1;pointer-events:none}
+.section-button-model{position:absolute;inset:0;pointer-events:none;visibility:hidden;z-index:2}.section-button-model canvas{width:100%;height:100%;display:block}
+.section-button.is-squishy{background:var(--section-colour);color:var(--section-text-colour);border-color:transparent;box-shadow:inset 0 .12em .15em #ffffff75,inset 0 -.12em .15em #0001}
+.section-button.is-squishy.model-ready .section-button-model{visibility:visible}.section-button.is-squishy.model-ready .section-button-label{visibility:hidden}
+.section-empty{color:#a7a9ac;box-shadow:inset 0 .06em .07em #ffffffd0,0 .06em .09em #15141030}
+.reader.design-frame .page-stage{top:var(--section-tab-height);right:var(--grid-inset);padding:var(--reader-ls);border:.065em solid #151410;border-radius:1em;box-shadow:inset 0 .08em .1em #15141012;scrollbar-color:var(--active-section-colour) white;scrollbar-gutter:stable}
+.reader .page-stage::-webkit-scrollbar{width:.6em}.reader .page-stage::-webkit-scrollbar-thumb{background:var(--active-section-colour);border-radius:1em;border:.08em solid white}.reader .page-stage::-webkit-scrollbar-track{background:white;border-radius:1em}
+.section-page-window{position:relative;flex:none;width:100%;overflow:hidden}.section-page-window>.pdf-slot{position:absolute;left:0;width:100%}
+.section-next-footer{padding:calc(2 * var(--reader-ls)) 0 var(--reader-ls);display:flex;justify-content:flex-end}.section-next-footer[hidden]{display:none}.section-next-footer .section-button{min-width:10em}
+.reader.highlights-open .section-tabs{visibility:hidden}
+
+/* Independent comparison panes; one renderer queue serves only visible pages. */
+.reader.design-frame .page-stage{padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden;scrollbar-gutter:auto}
+.reader.design-frame #page-mount{display:grid;align-items:stretch;justify-content:stretch;height:100%;width:100%;min-height:0;position:relative;gap:0;overflow:hidden}
+.section-reading-pane{position:relative;min-width:0;min-height:0;overflow:auto;height:100%;box-sizing:border-box;padding:var(--reader-ls);border:.065em solid #151410;border-radius:1em;scrollbar-color:var(--active-section-colour) white;scrollbar-gutter:stable;transform-origin:left center;background:white}
+.section-reading-pane::-webkit-scrollbar{width:.6em}.section-reading-pane::-webkit-scrollbar-thumb{background:var(--active-section-colour);border-radius:1em}
+.section-tabs>.section-button{transform-origin:left center}
+
+/* Section selectors: dropdown width follows its parent grid track. */
+.reader{--section-hover-size:86%}
+.section-tabs{z-index:8}
+.section-selector{position:relative;min-width:0;transform-origin:left center}
+.section-selector>.section-button{width:100%;padding-right:calc(2em + var(--reader-ls))}
+.section-button{border-radius:999em;border-color:#151410;border-width:var(--plain-outline-width);box-shadow:none}
+.section-button .section-button-label{color:#151410;font-family:'Courier New',Courier,monospace!important;font-size:100%!important;letter-spacing:inherit}
+.reader .section-button.is-squishy .section-button-label,.reader .section-button:hover .section-button-label{font-family:var(--button-font)!important;font-size:var(--section-hover-size)!important;letter-spacing:var(--button-hover-tracking)!important;color:var(--section-text-colour)}
+.section-button-model{z-index:0}
+.section-picker-arrow{position:absolute;right:var(--reader-ls);top:50%;transform:translateY(-50%);width:1.5em;height:1.5em;padding:.1em;border:0;background:transparent;z-index:4;color:#151410;cursor:inherit}
+.section-picker-arrow svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 .08em .035em #15141055)}
+.section-picker-arrow path{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.section-picker-arrow:active svg{transform:scale(.85)}
+.section-picker-arrow[aria-expanded=true] svg{rotate:180deg}
+.section-picker-menu{position:absolute;left:0;top:100%;width:100%;max-height:65vh;overflow:auto;z-index:20;background:transparent;border-radius:0;box-shadow:none}
+.section-picker-menu .section-button{display:block;width:100%;margin:0}
+.section-selector.picker-open{z-index:10}
+
+/* A shared, flat outline and matching corner arc. */
+.section-button,.section-empty{box-shadow:none}
+.section-reading-pane{border-width:var(--plain-outline-width);border-radius:var(--reading-box-radius)}
+.section-selector>.section-button[aria-pressed=true]~.section-picker-arrow{color:var(--arrow-colour)}
+
+/* Future sections stay locked; absent previous sections keep an empty grid slot. */
+.section-placeholder{visibility:hidden}
+.section-locked{display:flex!important;align-items:center;justify-content:center;color:#bcbec0;opacity:1}
+.section-locked svg{height:1.4em;width:1.2em}
+
+/* Bar top aligns with the first sidebar text row. */
+.reader{--section-tab-height:calc(1.25em + 2 * var(--reader-ls));--reading-box-radius:calc(.625em + var(--reader-ls))}
+.section-button{display:flex;align-items:center}
+.section-button-label{line-height:1.25}
+
+.section-tabs{top:var(--reader-ls)}
+.reader.design-frame .page-stage{top:calc(var(--reader-ls) + var(--section-tab-height))}
+
+.section-picker-menu.expand-moving{overflow:visible}
+.expand-moving> *{will-change:transform,opacity}
+
+.reader .section-button.section-locked:disabled{opacity:1!important;background:#fff;border-color:#151410;color:#151410;filter:none}
+.section-locked svg{color:#bcbec0}
+
+/* Keep the native .6em hit target, with a padded track inside the corner arcs. */
+.section-reading-pane{scrollbar-color:auto}
+.section-reading-pane::-webkit-scrollbar{width:.6em;background:transparent}
+.section-reading-pane::-webkit-scrollbar-track{margin-block:var(--reading-box-radius);background:transparent}
+.section-reading-pane::-webkit-scrollbar-thumb{
+ border-radius:999em;
+ background:linear-gradient(90deg,rgba(255,255,255,.62),transparent 38%,rgba(0,0,0,.24)),var(--active-section-colour);
+ box-shadow:inset .035em 0 .07em #ffffff90,inset -.045em 0 .08em #15141055;
+}
+.section-reading-pane::-webkit-scrollbar-thumb:active{box-shadow:inset .08em .02em .12em #15141070}
+
+.pane-rotate-dock{position:sticky;top:0;height:0;z-index:15;pointer-events:none}
+.reader .pane-rotate{position:absolute;right:0;top:0;width:1.2em;height:1.2em;min-width:0;min-height:0;padding:.12em;border:0;border-radius:25%;background:#ffffffed;color:#151410;pointer-events:auto;box-shadow:none}
+.pane-rotate svg{display:block;width:100%;height:100%}
+.pane-rotate[aria-pressed=true] svg{rotate:90deg}
+.pane-rotate::before,.pane-rotate::after{content:none!important}
+
+/* Pin the control at the pane's right corner, independent of inherited button styles. */
+.reader .pane-rotate{left:auto!important;right:0!important;top:0!important;margin:0!important;float:none;transform:none}
+.pane-rotate svg{rotate:90deg}
+.pane-rotate[aria-pressed=true] svg{rotate:0deg}
+#page-mount{transform-origin:center center}
+
+/* Sticky dock remains anchored to the visible pane, independent of PDF scroll. */
+.pane-rotate-dock{top:calc(100% - 2em)!important}
+.reader .pane-rotate{top:0!important;right:.5em!important}
+
+/* Chapter continuation stays text-only until hover, keyboard focus, or press. */
+.section-next-footer .section-button:not(.is-squishy){background:transparent;border-color:transparent;box-shadow:none;color:#151410}

@@ -1,0 +1,107 @@
+.tool-settings{position:absolute;left:var(--grid-inset);width:calc(var(--section-left) - var(--grid-inset) - var(--grid-gutter));bottom:calc(.85em + 2 * var(--reader-ls));box-sizing:border-box;padding:var(--reader-ls);border:var(--plain-outline-width) solid #151410;border-radius:var(--reading-box-radius);background:white;display:grid;gap:var(--reader-ls);font:inherit;font-family:'Courier New',monospace;z-index:4;transition:transform var(--sidebar-motion),opacity var(--sidebar-motion)}
+.tool-settings[hidden]{display:none}.tool-settings h2{font:inherit;margin:0;line-height:1}
+.tool-palette{display:flex;align-items:center;gap:1ch;min-height:1em}.tool-palette button{width:.75em;height:.75em;flex:none;border:0;border-radius:50%;background:var(--swatch);padding:0;position:relative;font:inherit}.tool-palette img{display:none;width:100%;height:100%}.tool-palette [aria-pressed=true]{transform:scale(1.2);background:none}.tool-palette [aria-pressed=true] img{display:block}
+.tool-opacity-row{display:flex;align-items:center;gap:1ch;height:calc(2 * var(--reader-ls))}.tool-opacity-row>span{margin-left:-.5ch}.tool-settings input{font:inherit;min-width:0;box-sizing:border-box}.tool-percent{width:calc(3ch + var(--reader-ls));height:calc(2 * var(--reader-ls));padding:0 calc(var(--reader-ls) * .5);text-align:center;border:var(--plain-outline-width) solid #151410;border-radius:min(var(--reading-box-radius),var(--reader-ls));appearance:textfield}.tool-percent::-webkit-inner-spin-button{appearance:none}
+.tool-settings input[type=range]{appearance:none;margin:0;padding:0;border:0;cursor:default}.tool-opacity{flex:1;height:var(--reader-ls);border-radius:999em;background:linear-gradient(to right,transparent,var(--tool-colour))}.tool-opacity::-webkit-slider-thumb{appearance:none;width:var(--plain-outline-width);height:calc(2 * var(--reader-ls));background:var(--tool-colour);border:0}.tool-opacity::-moz-range-thumb{width:var(--plain-outline-width);height:calc(2 * var(--reader-ls));background:var(--tool-colour);border:0;border-radius:0}
+.tool-stroke{width:100%;height:calc(var(--reader-ls) * .1);background:#a7a9ac;margin-block:calc(var(--reader-ls) * .45)!important}.tool-stroke::-webkit-slider-thumb{appearance:none;width:var(--tip-size);height:var(--tip-size);border-radius:50%;background:var(--tool-colour);opacity:var(--tool-alpha);border:0}.tool-stroke::-moz-range-thumb{width:var(--tip-size);height:var(--tip-size);border-radius:50%;background:var(--tool-colour);opacity:var(--tool-alpha);border:0}
+body.tool-slider-active,body.tool-slider-active *{cursor:default!important}.reader.sidebar-collapsed .tool-settings{transform:translateX(calc(-100% - 2em));opacity:0;pointer-events:none}
+.tool-settings [hidden]{display:none!important}
+.tool-pace-row{display:flex;align-items:center;gap:1ch;height:calc(2 * var(--reader-ls))}
+.tool-pace{flex:1;height:calc(var(--reader-ls) * .1);background:#a7a9ac}
+.tool-pace::-webkit-slider-thumb{appearance:none;border:0;border-radius:50%;width:var(--reader-ls);height:var(--reader-ls);background:var(--tool-colour)}
+.tool-pace::-moz-range-thumb{border:0;border-radius:50%;width:var(--reader-ls);height:var(--reader-ls);background:var(--tool-colour)}
+.tool-wpm{width:calc(3ch + var(--reader-ls));height:calc(2 * var(--reader-ls));padding:0 calc(.5 * var(--reader-ls));border:var(--plain-outline-width) solid #151410;border-radius:var(--reader-ls);text-align:center;appearance:textfield}.tool-wpm::-webkit-inner-spin-button{appearance:none}
+.paced-notice{position:fixed;bottom:1em;left:50%;transform:translateX(-50%);z-index:1000;padding:.5em 1em;background:white;border:var(--plain-outline-width) solid #151410;border-radius:1em;font:inherit;pointer-events:none}
+.paced-marker{position:fixed;z-index:40;pointer-events:none;display:grid;place-items:center;isolation:isolate}.paced-marker[hidden]{display:none}.paced-model{position:absolute;inset:0;z-index:-1}.paced-model canvas{width:100%;height:100%;display:block}.paced-word{color:#151410;white-space:pre;line-height:1}
+body.paced-awaiting #reader,body.paced-awaiting #reader *{cursor:grab!important}body.paced-awaiting.paced-grabbing #reader,body.paced-awaiting.paced-grabbing #reader *{cursor:grabbing!important}
+/* Independent tool panels, ordered by their unlock order. */
+.tool-settings-stack{position:absolute;left:var(--grid-inset);width:calc(var(--section-left) - var(--grid-inset) - var(--grid-gutter));bottom:calc(.85em + 2 * var(--reader-ls));display:flex;flex-direction:column;gap:var(--reader-ls);z-index:4;max-height:70%;overflow:auto;scrollbar-width:thin}
+.tool-settings-stack .tool-settings{position:relative;left:auto;bottom:auto;width:100%;flex:none}
+.reader.sidebar-collapsed .tool-settings-stack{pointer-events:none}
+.tool-settings .tool-palette button{appearance:none!important;display:block!important;width:.75em!important;height:.75em!important;min-width:0!important;min-height:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:var(--swatch)!important;box-shadow:none!important;overflow:hidden;transition:transform .2s ease}
+.tool-settings .tool-palette button::before,.tool-settings .tool-palette button::after{content:none!important}
+.tool-settings .tool-palette button img{display:none!important;object-fit:contain;position:absolute;inset:0;border-radius:50%}
+.tool-settings .tool-palette button[aria-pressed=true]{transform:scale(1.2);background:var(--swatch)!important}
+.tool-settings .tool-palette button[aria-pressed=true] img{display:block!important}
+.tool-settings input.tool-percent,.tool-settings input.tool-wpm{color:#151410!important;-webkit-text-fill-color:#151410!important;background:#fff!important;border:var(--plain-outline-width) solid #151410!important;box-shadow:none!important}
+body .tool-settings,body .tool-settings *{cursor:default!important}
+body.paced-tool-active #reader,body.paced-tool-active #reader *{cursor:default!important}
+.paced-notice{bottom:7%;left:27%;right:2%;transform:none;border:0;border-radius:0;padding:.7em;margin-block:1em;background:white;box-shadow:0 .1em .5em #0002;color:#151410;font:inherit;z-index:1000}
+.paced-word{position:absolute;inset:0;overflow:hidden;transform:none!important;pointer-events:none}
+body #reader .tool-settings,body #reader .tool-settings *,body.paced-awaiting #reader .tool-settings *,body.paced-awaiting.paced-grabbing #reader .tool-settings *,body.paced-tool-active #reader.squishy-cursor-active,body.paced-tool-active #reader.squishy-cursor-active *{cursor:default!important}
+/* The glow is clipped at precisely one LS beyond each active panel. */
+.tool-settings-stack{padding:var(--reader-ls);margin-left:calc(-1 * var(--reader-ls));margin-bottom:calc(-1 * var(--reader-ls));width:calc(var(--section-left) - var(--grid-inset) - var(--grid-gutter) + 2 * var(--reader-ls));box-sizing:border-box}
+.tool-settings-stack .tool-settings{isolation:isolate;overflow:visible}
+.tool-settings-stack .tool-settings::before{content:'';position:absolute;inset:calc(-1 * var(--reader-ls));border-radius:calc(var(--reading-box-radius) + var(--reader-ls));z-index:-1;pointer-events:none;opacity:0;background:transparent;box-shadow:inset 0 0 var(--reader-ls) var(--tool-colour);clip-path:inset(0 round calc(var(--reading-box-radius) + var(--reader-ls)));transition:opacity .25s ease;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;padding:var(--reader-ls)}
+.tool-settings-stack .tool-settings.is-active-tool::before{opacity:.65}
+@media(prefers-reduced-motion:reduce){.tool-settings-stack .tool-settings::before{transition:none}}
+.tool-settings-stack .tool-settings::before{inset:0;padding:0;border-radius:inherit;mask:none;box-shadow:0 0 calc(.65 * var(--reader-ls)) calc(.12 * var(--reader-ls)) var(--tool-colour);clip-path:inset(calc(-1 * var(--reader-ls)));background:transparent}
+.tool-settings-stack{--settings-extra:1ch;width:calc(var(--section-left) - var(--grid-inset) - var(--grid-gutter) + 4 * var(--reader-ls) + var(--settings-extra));padding:calc(2 * var(--reader-ls));margin-left:calc(-2 * var(--reader-ls));margin-bottom:calc(-2 * var(--reader-ls))}
+.tool-settings-stack .tool-settings::before{box-shadow:0 0 calc(1.3 * var(--reader-ls)) calc(.24 * var(--reader-ls)) var(--tool-colour);clip-path:inset(calc(-2 * var(--reader-ls)))}
+.tool-settings-stack .tool-settings.is-active-tool::before{opacity:.715}
+.tool-pace::-webkit-slider-thumb{width:calc(2 * var(--reader-ls));height:calc(2 * var(--reader-ls))}
+.tool-pace::-moz-range-thumb{width:calc(2 * var(--reader-ls));height:calc(2 * var(--reader-ls))}
+.tool-opacity::-webkit-slider-thumb{width:calc(.1 * var(--reader-ls))}
+.tool-opacity::-moz-range-thumb{width:calc(.1 * var(--reader-ls))}
+.tool-stroke{margin-block:var(--reader-ls)!important}
+.sketch-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:hidden}
+body #reader[data-active-tool="Sketch Pad"] .page-stage,body #reader[data-active-tool="Sketch Pad"] .page-stage *{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 21l2-7L17 2l5 5L10 19z' fill='white' stroke='%23151410' stroke-width='1.5'/%3E%3Cpath d='M3 21l2-7 5 5z' fill='%23151410'/%3E%3C/svg%3E") 3 21,crosshair!important;user-select:none!important;touch-action:none}
+.tool-settings .tool-palette button.tool-eraser{width:calc(2 * var(--reader-ls))!important;height:var(--reader-ls)!important;border-radius:0!important;background:transparent!important;overflow:visible;flex:none;transition:transform .22s cubic-bezier(.22,.7,.2,1)}
+.tool-eraser .eraser-body{position:absolute;inset:0;background:#f2f2f3;border-radius:25% 7% 7% 25%;display:block}
+.tool-eraser .eraser-wrap{position:absolute;inset:0 0 0 25%;background:#bdbec1}
+.tool-settings .tool-palette .tool-eraser[aria-pressed=true]{transform:scale(1.2);background:transparent!important}
+.tool-settings .tool-palette .tool-eraser[aria-pressed=true] .eraser-body{visibility:hidden}
+.tool-settings .tool-palette .tool-eraser img{border-radius:0;object-fit:fill;width:100%;height:100%}
+body #reader.sketch-erasing[data-active-tool="Sketch Pad"] .page-stage,body #reader.sketch-erasing[data-active-tool="Sketch Pad"] .page-stage *{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='20'%3E%3Crect x='1' y='2' width='26' height='16' rx='4' fill='%23f2f2f3' stroke='%23777'/%3E%3Cpath d='M9 2h18v16H9z' fill='%23bdbec1'/%3E%3C/svg%3E") 3 17,crosshair!important}
+/* Restore the original glow and pace handle without changing the wider panel. */
+.tool-settings-stack .tool-settings::before{box-shadow:0 0 calc(.65 * var(--reader-ls)) calc(.12 * var(--reader-ls)) var(--tool-colour);clip-path:inset(calc(-1 * var(--reader-ls)))}
+.tool-settings-stack .tool-settings.is-active-tool::before{opacity:.65}
+.tool-pace::-webkit-slider-thumb{width:var(--reader-ls);height:var(--reader-ls)}
+.tool-pace::-moz-range-thumb{width:var(--reader-ls);height:var(--reader-ls)}
+/* Blend the cushion into the actual PDF glyphs; never paint duplicate text over them. */
+.paced-marker{mix-blend-mode:multiply;opacity:.65;isolation:auto}
+.paced-word{visibility:hidden}
+.section-reading-pane>.sketch-overlay{z-index:8;pointer-events:none;max-width:100%}
+.tool-settings .tool-palette button.tool-eraser{width:calc(1.7 * var(--reader-ls))!important}
+/* Thin tracks; the opacity handle remains independently adjustable. */
+.tool-stroke,.tool-pace{height:calc(.1 * var(--reader-ls));border-radius:999em}
+.tool-opacity::-webkit-slider-thumb{width:calc(.25 * var(--reader-ls))}
+.tool-opacity::-moz-range-thumb{width:calc(.25 * var(--reader-ls))}
+.tool-stroke-row{position:relative;height:calc(2.25 * var(--reader-ls));margin-inline:calc(.5 * var(--reader-ls))}
+.tool-stroke-row .tool-stroke{position:absolute;left:0;top:calc(.5 * var(--reader-ls));margin:0!important}
+.tool-settings .tool-stroke-handle{position:absolute;bottom:0;width:var(--reader-ls);height:calc(.6 * var(--reader-ls));min-width:0;min-height:0;padding:0;border:0;background:#a7a9ac;clip-path:polygon(50% 0,100% 100%,0 100%);transform:translateX(-50%);touch-action:none;box-shadow:none}
+.tool-stroke-handle::before,.tool-stroke-handle::after{content:none!important}
+
+/* Pace handle matches the unselected colour swatches. */
+.tool-pace::-webkit-slider-thumb{width:.75em;height:.75em}
+.tool-pace::-moz-range-thumb{width:.75em;height:.75em}
+.tool-settings-stack .tool-settings.is-active-tool::before{opacity:.715}
+.tool-settings .tool-palette button.tool-eraser[aria-pressed=true]{transform:scale(1.2)!important}
+.tool-settings .tool-palette button.tool-eraser[aria-pressed=true] img{display:block!important;border-radius:0!important;object-fit:fill}
+
+.tool-opacity::-webkit-slider-thumb{width:calc(.125 * var(--reader-ls));border-radius:999px}
+.tool-opacity::-moz-range-thumb{width:calc(.125 * var(--reader-ls));border-radius:999px}
+.tool-opacity{border-radius:calc(.25 * var(--reader-ls))}
+.tool-eraser .eraser-wrap{border-radius:8%}
+
+/* Draft 1: graphics, then cushion, then selectable visible text. */
+.pdf-page.pdf-layered-text{position:relative;isolation:isolate}
+.pdf-layered-text>canvas{position:relative;z-index:0}
+.pdf-page.pdf-layered-text>.textLayer{z-index:2;opacity:1;mix-blend-mode:normal}
+.pdf-layered-text>.paced-marker{z-index:1;pointer-events:none}
+
+/* Each button panel starts its own palette cycle. */
+.connection-choices{display:grid;gap:var(--reader-ls);min-width:0}
+.checker-choices{display:flex;align-items:center;gap:var(--reader-ls);min-width:0}
+.tool-settings .setting-choice{position:relative;isolation:isolate;display:block;box-sizing:border-box;width:100%;min-width:0;margin:0;padding:var(--reader-ls);border:var(--plain-outline-width) solid #151410;border-radius:var(--reading-box-radius);background:white;color:#151410;font:inherit;line-height:1;text-align:left;box-shadow:none}
+.setting-choice::before,.setting-choice::after{content:none!important}
+.setting-choice-label{position:relative;z-index:1;font-family:'Courier New',monospace;white-space:nowrap}
+.setting-choice-model{position:absolute;inset:0;pointer-events:none;z-index:0;visibility:hidden}
+.setting-choice-model canvas{display:block;width:100%;height:100%}
+.tool-settings .setting-choice.is-squishy{border-color:transparent;background:transparent}
+.setting-choice.is-squishy .setting-choice-model{visibility:visible}
+.setting-choice.is-squishy .setting-choice-label{font-family:var(--button-font),Helvetica,sans-serif;font-size:86%;letter-spacing:var(--button-hover-tracking);color:var(--choice-ink)}
+.tool-settings .checker-choices .setting-choice{flex:1;width:auto;aspect-ratio:1;padding:0;display:grid;place-items:center;border-radius:50%}
+.checker-caption{white-space:nowrap;font:inherit}
+
+.reader.highlights-open .tool-settings-stack{z-index:100;visibility:visible}.reader.highlights-open .tool-settings[data-tool="Highlight"]{display:block}

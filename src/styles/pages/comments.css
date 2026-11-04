@@ -1,0 +1,25 @@
+.pdf-comments{position:absolute;inset:0;z-index:45;pointer-events:none;overflow:hidden;font-family:'Courier New',monospace;--comment-green:#fcf068;--comment-ls:var(--reader-ls,.55em)}
+.comment-marks{position:absolute;overflow:hidden;pointer-events:none}
+.comment-highlight{position:absolute;background:rgb(252 240 104 / 48%);border-radius:.18em;box-shadow:inset 0 .12em .18em #ffffff45,inset 0 -.1em .15em #a4963030;pointer-events:none}
+.comment-box{position:absolute;box-sizing:border-box;background:white;border:var(--plain-outline-width) solid var(--comment-green);border-radius:var(--reading-box-radius);padding:var(--comment-ls);box-shadow:none;pointer-events:auto;display:flex;flex-direction:column;gap:var(--comment-ls);min-width:0;touch-action:none}
+.comment-box[hidden],.comment-arrow[hidden]{display:none}
+.comment-drag{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--comment-ls);color:#a7a9ac;font-size:1em;line-height:1;user-select:none;flex-shrink:0}
+.comment-drag button{font:inherit;font-size:1em;line-height:1;border:0;background:none;color:#151410;padding:0;width:1em;height:1em;flex:none}
+.comment-box textarea{display:block;box-sizing:border-box;flex:1;min-height:0;min-width:0;width:100%;border:0;outline:0;padding:0;resize:none;overflow:auto;font:inherit;line-height:calc(1em + var(--comment-ls));color:#151410;background:white;touch-action:auto;scrollbar-width:thin;scrollbar-color:#a7a9ac transparent}
+.comment-box textarea::placeholder{color:#a7a9ac;opacity:1}
+.comment-arrow{position:absolute;width:2.1em;height:1.5em;border:0;background:transparent;padding:0;pointer-events:auto;filter:drop-shadow(0 .08em .08em #367b3350)}
+.comment-arrow svg{width:100%;height:100%;overflow:visible}.comment-arrow path{fill:#69bf64;stroke:#8cd688;stroke-width:1.5;stroke-linejoin:round}
+.comment-resize{position:absolute;width:.9em;height:.9em;touch-action:none}.comment-resize.nw{top:0;left:0}.comment-resize.ne{top:0;right:0}.comment-resize.sw{bottom:0;left:0}.comment-resize.se{bottom:0;right:0}
+.comment-status:empty{display:none}.comment-status{position:absolute;bottom:1em;right:1em;background:white;color:#151410;padding:.5em}
+.reader.highlights-open .pdf-comments,body.catch-open .pdf-comments{visibility:hidden}
+
+.comment-drag span{font-size:.7em;line-height:calc(1em + var(--comment-ls))}
+.comment-drag button img,.comment-arrow img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.comment-arrow{filter:none}
+
+.comment-marks{mix-blend-mode:multiply}
+.comment-highlight{background:#fcf068;box-shadow:none;border-radius:0}
+
+.comment-marks{display:none} /* Both annotation types now share the original foam renderer. */
+
+.comment-arrow{width:42px;height:42px}.comment-arrow img{transform:rotate(-90deg)}

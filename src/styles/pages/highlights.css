@@ -1,0 +1,64 @@
+/* Highlights shares the History grid, divider assets and row rhythm. */
+.reader { --nav-gap:.65em; --history-grey:#a7a9ac; --home-ink:#151410; }
+.reader .highlights-panel { top:0; bottom:0; z-index:4; }
+.highlights-panel .history-content { padding-top:1.5em; }
+.highlights-close { position:absolute; right:0; top:0; width:.9em; height:.9em; border:0; padding:0; background:none; color:#151410; font:inherit; line-height:1; z-index:3; }
+.highlights-close img { position:absolute; inset:0; width:100%; height:100%; }
+.highlights-close.has-art { font-size:0; width:calc(var(--reader-font-size)*.9); height:calc(var(--reader-font-size)*.9); }
+.highlights-panel .history-document { line-height:1.25; gap:var(--nav-gap); padding-block:var(--nav-gap); }
+.highlights-panel .history-title { display:block; max-width:100%; white-space:normal; overflow-wrap:anywhere; word-break:normal; }
+.highlights-open #page-stage, .highlights-open .reading-progress-footer { visibility:hidden; }
+.highlights-open .reading-sidebar { z-index:5; }
+#highlights-toggle { position:relative; border:0; background:none; padding:0; margin:0; font:inherit; letter-spacing:inherit; line-height:1.25; }
+#highlights-toggle .about-button-label { display:block; }
+#highlights-toggle .about-button-model { display:none; position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+#highlights-toggle.is-visual { padding:var(--nav-gap); }
+#highlights-toggle.is-visual .about-button-label { width:var(--about-text-width,auto); height:var(--about-cap-height,.65em); line-height:var(--about-cap-height,.65em); }
+#highlights-toggle.is-visual .about-button-model { display:block; }
+#highlights-toggle.is-visual.model-ready .about-button-label { visibility:hidden; }
+#highlights-toggle.is-visual:not(.model-ready) { background:#69bf64; color:#f89823; border-radius:.65em; }
+
+/* Persisted marks are anchored to PDF coordinates, not the transient selection. */
+.saved-highlight-marks{position:absolute;inset:0;pointer-events:none;z-index:3;mix-blend-mode:multiply}
+.saved-highlight-mark{position:absolute;background:#bda7d0;pointer-events:none}
+.saved-highlight-mark[data-tip=start],.comment-highlight[data-tip=start]{border-radius:50% 0 0 50% / 35% 0 0 35%}
+.saved-highlight-mark[data-tip=end],.comment-highlight[data-tip=end]{border-radius:0 50% 50% 0 / 0 35% 35% 0}
+.saved-highlight-mark[data-tip=both],.comment-highlight[data-tip=both]{border-radius:50% / 35%}
+.saved-highlight-mark[data-tip]:not([data-tip=middle]),.comment-highlight[data-tip]:not([data-tip=middle]){clip-path:polygon(0 0,8% 12%,50% 18%,92% 12%,100% 0,100% 100%,92% 88%,50% 82%,8% 88%,0 100%)}
+
+.saved-highlight-marks,.saved-comment-marks{position:absolute;inset:0;pointer-events:none;z-index:3;mix-blend-mode:normal}
+.persistent-foam-mark{position:absolute;background:white;pointer-events:none}
+.persistent-foam-surface{position:absolute;left:-.25lh;top:0;width:calc(100% + .5lh);height:100%;pointer-events:none}
+.persistent-foam-ink{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.highlight-delete-tip{position:absolute;left:100%;top:0;width:1.6em;height:1.3em;background:none;border:0;padding:0;pointer-events:auto}
+.highlight-delete-tip img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.highlight-delete-tip .highlight-tip-cross{inset:20.25% auto auto 38%;width:42.5%;height:59.5%}
+
+/* Search starts on the same row as the sidebar heading. */
+.highlights-panel .history-content{padding-top:0}
+.highlights-panel .history-search{padding-top:var(--reader-ls)}
+.highlights-panel .history-search input{line-height:var(--nav-line-height)}
+/* Hide the complete reading surface, including canvases with explicit visibility. */
+.reader.highlights-open .section-tabs{display:none!important}
+.reader.highlights-open #page-stage,
+.reader.highlights-open #page-stage *,
+.reader.highlights-open .reading-progress-footer,
+.reader.highlights-open .reading-progress-footer *{visibility:hidden!important;pointer-events:none!important}
+.highlights-close{top:calc(var(--reader-ls) + .175em)}
+
+/* Shared search-row positioning also applies to the Highlights close control. */
+.highlights-panel .history-search{--search-top:var(--reader-ls)}
+.highlights-panel .history-search .highlights-close{top:var(--search-top);width:.9em;height:1.25em;font-size:inherit}
+
+.history-search .highlights-close.has-art{color:transparent}
+
+.highlight-delete-tip{left:auto;right:100%;width:48px;height:48px;top:calc(50% - 24px)}.highlight-delete-tip img:first-child{transform:rotate(-90deg)}.highlight-delete-tip .highlight-tip-cross{opacity:0}.highlight-delete-tip:hover .highlight-tip-cross{opacity:1}
+
+/* Centre the leading Eaty on the first row and keep the strip clear of its body. */
+.highlight-delete-tip{right:calc(100% + 2px);top:50%;transform:translateY(-50%);z-index:2}
+.saved-highlight-marks .persistent-foam-surface{clip-path:inset(0 0 0 .25lh)}
+.saved-highlight-mark{background:#bae4ee}
+
+.highlight-delete-tip{right:calc(100% - 12px)}.saved-highlight-marks .persistent-foam-surface{clip-path:none}.saved-highlight-mark{background:#f7c9de}
+
+.highlight-delete-tip{right:calc(100% - 12px + .325em)}.saved-highlight-mark{background:#bae4ee}

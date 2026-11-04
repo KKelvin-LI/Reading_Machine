@@ -1,0 +1,199 @@
+/* READER: relative to the same eight-column frame as Home and History. */
+.reader.design-frame {
+  position: relative;
+  z-index: 1;
+  --reader-header-height: 6%;
+  --reader-footer-height: 6%;
+  --reader-ls: .55em;
+  --reader-font-size: clamp(.65rem, 1.15cqw, 1.25rem);
+  --reader-letter-spacing: -.035em;
+  height: min(100svh, 56.25vw);
+  min-height: 32rem;
+  display: block;
+  overflow: hidden;
+  background: white;
+  color: #151410;
+  font-size: var(--reader-font-size);
+  letter-spacing: var(--reader-letter-spacing);
+}
+.reading-brand-row { position:absolute; inset:0 0 auto; height:var(--reader-header-height); z-index:5; background:white; display:flex; align-items:center; justify-content:space-between; padding-inline:var(--grid-inset); }
+.reading-brand { display:flex; align-items:center; gap:.65em; border:0; padding:0; background:none; font:inherit; letter-spacing:inherit; }
+.reading-brand img { width:1.38em; height:1.02em; object-fit:contain; }
+.reading-account { width:1.15em; aspect-ratio:1; border:0; padding:0; border-radius:50%; color:white; background:#151410; font:inherit; font-size:.85em; }
+.reading-window { position:absolute; inset:var(--reader-header-height) 0 0; background:white; }
+.reading-sidebar { position:absolute; left:var(--grid-inset); top:0; width:22%; padding-top:var(--reader-ls); }
+.reading-sidebar h2 { margin:0; font:inherit; }
+.reading-tools { width:max-content; max-width:100%; }
+.reading-tools.has-tools { background:#f89823; border-radius:1em; padding:var(--reader-ls); color:#326eb3; }
+#reading-tool-list { display:grid; gap:.22em; }
+.reading-tools.has-tools #reading-tool-list { margin-top:var(--reader-ls); }
+.reading-tool { display:flex; align-items:center; gap:.4em; white-space:nowrap; }
+.reading-tool input { appearance:none; flex:none; margin:0; width:.8em; height:.8em; border:.065em solid #326eb3; border-radius:.18em; background:transparent; box-shadow:inset .05em .05em .08em #ffffff80, .03em .05em .07em #0002; }
+.reading-tool input:checked { background:#326eb3; }
+.reading-highlights { margin-top:var(--reader-ls) !important; }
+/* Column 3 begins after two columns and two gutters: 26.175% with this grid. */
+.reader .page-stage { position:absolute; left:calc(var(--grid-inset) + (100% - 2 * var(--grid-inset) + var(--grid-gutter)) / 4); right:0; top:0; bottom:calc(var(--reader-footer-height) / .94); padding:0 var(--grid-inset) 0 0; background:white; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#e5e5e5 white; }
+.reader #page-mount { display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:1.2em; width:100%; min-width:0; }
+.reader .pdf-page { box-shadow:none; max-width:100%; }
+.pdf-slot { position:relative; flex:none; background:white; width:100%; }
+.pdf-slot[aria-busy="true"]::before { content:'Loading page…'; position:absolute; top:1em; left:1em; color:#a7a9ac; }
+.pdf-retry { margin:1em; padding:.5em; background:white; border:1px solid #a7a9ac; }
+.reading-progress-footer { position:absolute; left:0; right:0; bottom:0; height:calc(var(--reader-footer-height) / .94); display:flex; align-items:center; gap:.5em; padding-left:calc(var(--grid-inset) + (100% - 2 * var(--grid-inset) + var(--grid-gutter)) / 4); padding-right:var(--grid-inset); background:white; z-index:3; }
+#reading-progress { display:flex; align-items:center; gap:.55em; flex:1; min-width:0; }
+.reading-quarter { display:flex; align-items:center; gap:.5em; flex:1; min-width:0; }
+.reading-track { position:relative; overflow:hidden; height:.85em; border:.065em solid #151410; border-radius:999em; flex:1; background:white; }
+.reading-fill { display:block; height:100%; width:var(--fill,0%); border-radius:999em; background:var(--quarter-colour); box-shadow:inset 0 .15em .2em #ffffff55, inset 0 -.12em .15em #0001; }
+.reading-lock { flex:none; width:1.05em; height:1.35em; color:#a7a9ac; }
+.reading-lock svg { display:block; width:100%; height:100%; }
+.reading-lock.unlocked { color:var(--checkpoint-colour); }
+.reading-lock.unlocked .lock-shackle { transform:translateY(-1px) rotate(-20deg); transform-origin:17px 12px; }
+#reading-percent { font:inherit; min-width:3ch; }
+.reader .lab-toolbar { display:none; }
+.reader-sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+@media(max-width:40rem) { .reader.design-frame { min-height:100svh; } .reading-sidebar { width:23%; font-size:.8em; } .reading-tool { white-space:normal; } }
+
+/* One expanding cushion wraps the heading AND all currently unlocked rows. */
+.reader { --tools-ls:.65em; }
+.reading-tools, .reading-tools.has-tools { position:relative; width:max-content; max-width:none; background:transparent; padding:0; border-radius:0; color:inherit; }
+#reading-tools-toggle { position:relative; display:block; border:0; margin:0; padding:0; background:transparent; color:inherit; font:inherit; letter-spacing:inherit; line-height:1.25; }
+.reading-tools-label,.reading-tool-text { display:block; position:relative; }
+.reading-tools.is-visual { padding:var(--tools-ls); color:#326eb3; }
+.reading-tools-model { display:none; position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+.reading-tools-model canvas { display:block; width:100%; height:100%; }
+.reading-tools.is-visual .reading-tools-model { display:block; }
+.reading-tools.is-visual.model-ready :is(.reading-tools-label,.reading-tool-text) { color:transparent; }
+.reading-tools.is-visual:not(.model-ready) { background:#f89823; border-radius:.65em; }
+.reading-tools h2,#reading-tool-list { position:relative; z-index:1; }
+.reading-tools.has-tools #reading-tool-list { margin-top:.22em; color:inherit; }
+.reading-tool input { position:relative; z-index:2; }
+.reading-highlights { margin-top:var(--tools-ls) !important; }
+
+.reading-tools { transform-origin:top left; }
+#reading-tool-list[hidden] { display:none !important; }
+#reader.squishy-cursor-active, #reader.squishy-cursor-active * { cursor:none !important; }
+
+.reading-sections{margin-top:var(--reader-ls);font:inherit;max-width:100%}
+.reading-sections summary{font:inherit;user-select:none}
+.reading-sections p{font-size:.8em;color:#a7a9ac;margin:var(--reader-ls) 0}
+.reading-sections nav{display:grid;gap:var(--reader-ls);max-height:45vh;overflow:auto;scrollbar-width:thin}
+.reading-sections nav button{font:inherit;color:inherit;text-align:left;border:0;padding:0;background:none;white-space:normal;overflow-wrap:anywhere}
+
+/* Home is the single spacing/typography reference for both screens. */
+.reader.design-frame{
+ --reader-font-size:var(--home-type-size);
+ --reader-letter-spacing:var(--home-tracking);
+ --reader-ls:var(--nav-gap);
+ --tools-ls:var(--nav-gap);
+ --reader-header-height:calc(2.4% + 1.95em - var(--reader-ls));
+ font-family:var(--font-ui);line-height:var(--home-leading);
+}
+.reading-brand-row{top:2.4%;align-items:flex-start;padding-top:0;height:1.25em}
+.reading-brand,.reading-account{position:absolute;top:0}
+.reading-brand{left:var(--grid-inset);line-height:var(--home-leading);color:var(--home-ink)}
+.reading-account{right:var(--grid-inset)}
+.reading-sidebar{padding-top:var(--reader-ls)}
+#reading-tools-toggle,#highlights-toggle{line-height:var(--nav-line-height)}
+.reading-highlights{margin-top:0!important}
+.reading-sidebar:has(.reading-tools.is-visual) .reading-highlights{margin-top:var(--nav-gap)!important}
+.reading-brand,.reading-sidebar button{-webkit-text-stroke:var(--ui-outline) currentColor;paint-order:stroke fill}
+@media(max-width:40rem){.reading-sidebar{font-size:inherit}}
+/* Independent tool capsules; the surrounding group has no cushion. */
+.reading-tools,.reading-tools.is-visual,.reading-tools.has-tools{padding:0;background:none;color:inherit}
+#reading-tools-toggle.is-squishy{padding:var(--tools-ls)}
+.tool-button-model{position:absolute;inset:0;pointer-events:none;display:none;z-index:0}
+.tool-button-model canvas{display:block;width:100%;height:100%}
+.is-squishy>.tool-button-model{display:block}
+#reading-tool-list{gap:0}
+.reading-tools.has-tools #reading-tool-list{margin-top:var(--tools-ls)}
+.reading-tool{position:relative;box-sizing:border-box;min-height:calc(1.25em + 2 * var(--tools-ls));padding:var(--tools-ls);border:var(--plain-outline-width) solid #151410;border-radius:999em;background:white;color:#151410;isolation:isolate}
+.reading-tool.is-squishy{border-color:transparent;background:#f89823;color:#326eb3}
+.reading-tool.is-squishy.model-ready{background:transparent}
+.reading-tool-text,.reading-tools-label{z-index:1}
+.reading-tools .reading-tool-text,.reading-tools .reading-tools-label{font-family:'Courier New',monospace!important;font-size:100%!important;color:#151410!important}
+.reading-tools .is-squishy :is(.reading-tool-text,.reading-tools-label){font-family:var(--button-font)!important;font-size:86%!important;letter-spacing:var(--button-hover-tracking)!important;color:#326eb3!important}
+
+/* Only individual cushions are coloured; the list/group has no backing. */
+.reader .reading-tools,.reader .reading-tools.is-visual,.reader .reading-tools.is-visual:not(.model-ready),.reader .reading-tools.has-tools{background:transparent!important;border-radius:0;box-shadow:none}
+.reader .reading-tools #reading-tool-list{gap:0;row-gap:0;margin-top:0;background:transparent;padding:0}
+.reader .reading-tool{margin:0;border-color:transparent}
+
+.reading-tool input:checked{background:radial-gradient(ellipse at 35% 20%,#7fb4e7 0%,#326eb3 60%,#24558a 100%);border-color:#326eb3;box-shadow:inset 0 .09em .12em #ffffff70,inset 0 -.08em .12em #163d6970;border-radius:.24em}
+
+/* One air-filled capsule per chapter, proportional to its cropped page area. */
+#reading-progress>.reading-track{min-width:0;box-sizing:border-box;box-shadow:inset 0 .08em .12em #15141018}
+#reading-progress .reading-fill{
+ background:linear-gradient(180deg,#ffffff99 0%,#ffffff18 35%,transparent 55%,#15141045 100%),var(--quarter-colour);
+ box-shadow:inset 0 .08em .12em #ffffff99,inset 0 -.1em .15em #15141045;
+ transition:width .18s ease-out;
+}
+
+/* Shared LS spacing and an outline only on the unread part of each capsule. */
+#reading-progress{gap:calc(var(--reader-ls) * .5)}
+#reading-progress>.reading-track{border:0;box-shadow:none;background:white}
+#reading-progress>.reading-track::after{
+ content:"";position:absolute;inset:0;border:var(--plain-outline-width) solid #151410;
+ border-radius:inherit;box-sizing:border-box;pointer-events:none;
+ clip-path:inset(0 0 0 var(--fill,0%));transition:clip-path .18s ease-out;
+}
+#reading-progress .reading-lock{
+ display:grid;place-items:center;box-sizing:border-box;width:1.35em;height:1.35em;
+ border:var(--plain-outline-width) solid #151410;border-radius:50%;background:white;color:#bcbec0;
+ pointer-events:none;
+}
+#reading-progress .reading-lock svg{width:58%;height:74%;overflow:visible}
+.checkpoint-lock-inflation{display:none}
+#reading-progress .reading-lock.unlocked{
+ border-color:transparent;color:var(--checkpoint-colour);
+ background:radial-gradient(circle at 32% 22%,#ffffffa8,transparent 48%),linear-gradient(160deg,transparent 48%,#15141050),var(--checkpoint-base);
+ box-shadow:inset 0 .055em .09em #ffffffb0,inset 0 -.08em .11em #15141045;
+}
+.reading-lock.unlocked .checkpoint-lock-inflation{display:block}
+.reading-lock.unlocked svg{filter:drop-shadow(0 .035em .025em #15141060)}
+
+/* Compact, flat checkpoint platforms: 120% of the .85em bar height. */
+#reading-progress .reading-lock{position:relative;width:1.02em;height:1.02em}
+#reading-progress .reading-lock.unlocked{background:none;box-shadow:none;border:0}
+#reading-progress .reading-lock.unlocked>svg{display:none}
+.progress-lock-render{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.reader.design-frame{--reader-footer-height:calc(.85em + 2 * var(--reader-ls))}
+body:has(.reader:not([hidden])){background:white}
+
+/* Centre the .85em bar in two LS of space: its bottom is exactly one LS. */
+.reader .reading-progress-footer{height:var(--reader-footer-height)}
+.reader .page-stage{bottom:var(--reader-footer-height)}
+
+/* Only newly unlocked chapters receive a cover; revisiting chapters stays immediate. */
+.section-reading-pane.chapter-revealing{overflow:hidden!important}
+.chapter-unlock-cover{position:absolute;inset:0;z-index:20;background:white;border-radius:inherit;display:grid;place-items:center;pointer-events:auto}
+.chapter-unlock-cover svg{width:clamp(2.5rem,12%,6rem);height:auto;color:#bcbec0;overflow:visible}
+.chapter-shackle{transform-origin:24px 17px}
+#reading-progress .reading-lock{height:1.12em}
+.progress-lock-render{object-fit:fill}
+
+/* The reading workspace fills the viewport, including taller-than-16:9 windows. */
+.reader.design-frame{height:100svh;min-height:0;max-height:none}
+.reader .reading-progress-footer{bottom:var(--reader-ls);height:.85em;overflow:visible}
+.reader .page-stage{bottom:calc(.85em + 2 * var(--reader-ls))}
+
+.reading-close{position:absolute;top:0;right:var(--grid-inset);display:grid;place-items:center;width:1.15em;height:1.15em;padding:0;border:0;background:none;font:inherit;flex:none}
+.reading-close img{display:block;width:100%;height:100%;object-fit:contain}
+
+/* Match normal navigation cushions: visible capital height plus exactly 1LS per side. */
+.reader .reading-tools.is-expanded{width:max-content;display:grid;justify-items:stretch}
+.reader .reading-tools.is-expanded #reading-tools-toggle{width:100%;box-sizing:border-box;text-align:left}
+.reader #reading-tools-toggle.is-squishy{padding:var(--tools-ls);box-sizing:border-box}
+.reader #reading-tools-toggle.is-squishy .reading-tools-label,
+.reader .reading-tool .reading-tool-text{height:var(--about-cap-height,.65em);line-height:var(--about-cap-height,.65em)}
+.reader .reading-tool{width:100%;min-height:0;height:calc(var(--about-cap-height,.65em) + 2 * var(--tools-ls));padding:var(--tools-ls);border:0;justify-content:flex-start;text-align:left}
+.reader .reading-tool input{width:.65em;height:.65em}
+
+/* The entire opaque reader travels above the frog canvas (z-index: 0). */
+.reader.design-frame.reader-transition{position:fixed;left:var(--transition-left);top:var(--transition-top);width:var(--transition-width);margin:0;z-index:1;pointer-events:none}
+
+/* Replay uses the checkpoint platform dimensions, but remains clickable. */
+#reading-replay{position:relative;flex:none;width:1.02em;height:1.12em;border:0;padding:0;border-radius:50%;background:transparent;font:inherit;cursor:pointer}
+#reading-replay:focus-visible{outline:2px solid #151410;outline-offset:3px}
+#reading-replay:active{transform:scale(.91)}
+
+#reading-replay:disabled{cursor:default;opacity:1;color:#151410;transform:none}
+#reading-replay>svg{display:block;width:100%;height:100%;overflow:visible}

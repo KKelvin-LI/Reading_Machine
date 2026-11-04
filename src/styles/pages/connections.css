@@ -1,0 +1,15 @@
+.connections-overlay{position:fixed;inset:0;width:100%;height:100%;z-index:65;pointer-events:none;mix-blend-mode:normal}
+.connections-overlay .trace-hit{pointer-events:stroke;cursor:pointer}
+.connections-notice{position:fixed;z-index:70;box-sizing:border-box;pointer-events:none}
+.connections-notice[hidden]{display:none}
+.trace-count{display:inline-flex;align-items:center;justify-content:center;flex:none;width:calc(2 * var(--reader-ls));height:calc(2 * var(--reader-ls));margin-right:var(--reader-ls);border-radius:50%;background:radial-gradient(circle at 32% 22%,#ffffffb3,transparent 55%),var(--trace-colour);box-shadow:inset 0 -.12em .18em #0005;color:#fff;position:relative;z-index:2;font:inherit;vertical-align:middle}
+body.connections-active #reader .section-reading-pane{cursor:text!important}
+
+.section-button:has(> .trace-count){display:flex!important;align-items:center;flex-wrap:nowrap!important;}
+.section-button:has(> .trace-count) > .section-button-label{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.section-button > .trace-count{flex:0 0 auto;align-self:center;}
+
+/* Notification counts sit outside the label flow. */
+.section-button:has(> .trace-count){overflow:visible!important;position:relative;}
+.section-button > .trace-count{position:absolute;left:0;top:0;transform:translate(-20%,-35%);margin:0;z-index:6;pointer-events:none;}
+.trace-count[hidden]{display:none!important;}

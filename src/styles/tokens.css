@@ -1,6 +1,6 @@
 /* Start here to refine the visual identity. PDF typography belongs to the document. */
 :root {
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-ui: 'Reading Courier', 'Courier New', Courier, monospace;
   --color-background: #f8fafc;
   --color-surface: #ffffff;
   --color-stage: #e9edf2;
@@ -13,3 +13,5 @@
   --radius-small: 7px;
   --shadow-paper: 0 3px 18px #24314912, 0 0 0 1px #24314909;
 }
+
+:root{--plain-outline-width:1px;--reading-box-radius:calc(.5em + var(--reader-ls,.55em))}

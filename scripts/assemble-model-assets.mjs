@@ -1,0 +1,10 @@
+import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+const source = new URL('../model-assets/inflated-alphabet/', import.meta.url);
+const files = (await readdir(source)).filter(name => name.endsWith('.part')).sort();
+const model = Buffer.concat(await Promise.all(files.map(name => readFile(new URL(name, source)))));
+const expected = '1ddf22e8fa4dbd0deee3b73f6137c6680f8e10642eddc42ca5fae98db8c8c1f0';
+if (createHash('sha256').update(model).digest('hex') !== expected) throw new Error('Alphabet model integrity check failed');
+const target = new URL('../public/models/about/inflated-alphabet.glb', import.meta.url);
+await mkdir(new URL('.', target), { recursive: true });
+await writeFile(target, model);

@@ -1,0 +1,19 @@
+/* Local font: no font download required. */
+@font-face {
+  font-family: 'Reading Courier';
+  src: local('Courier New'), local('CourierNewPSMT');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  --font-ui: 'Reading Courier', 'Courier New', Courier, monospace;
+  --font-size-body: 1rem;
+  --line-height-body: 1.5;
+}
+body { font-size: var(--font-size-body); font-family: var(--font-ui); }
+.home :is(h1,h2,h3,p,a,span,button,strong),
+.reader :is(button,input,select,label), .reader-header, .reader-footer {
+  font-weight: 400;
+}
+/* PDF text retains the fonts embedded in the document. */

@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Eaty swallowing — looping preview</title><style>
+body{margin:0;background:white;color:#151410;font:18px 'Courier New',monospace}#controls{position:fixed;left:16px;bottom:12px;z-index:2147483647;background:white;border:1px solid;padding:8px 12px;border-radius:12px}.reading-window{position:absolute;inset:7% 14% 10%;border:1px solid;border-radius:24px;padding:3vw;overflow:hidden;background:white}p{line-height:1.6}button{font:inherit}
+</style></head><body><section id="reader"><article class="reading-window"><h1>Reading preview</h1><p>Reading gives us time to notice details, follow ideas, and make connections. Each paragraph builds on what came before it.</p><p>A familiar page remains here while Eaty plays the finishing animation. When he drops out of view, you can return to the text at the same position.</p><p>This sample passage stands in for your document in the looping preview.</p></article></section><div id="controls"><label><input id="repeat" type="checkbox" checked> Repeat animation</label> <button id="replay">Replay</button> <span id="status">Preparing preview…</span></div><script type="module">
+import {mountCompletion} from './src/pages/completion/controller.ts';
+const demo=mountCompletion();let active=false,timer;
+function play(){clearTimeout(timer);if(active)return;active=true;document.querySelector('#status').textContent='Playing';document.dispatchEvent(new CustomEvent('reader:first-completion',{detail:{reader:document.querySelector('#reader')}}));}
+document.addEventListener('reader:completion-finished',()=>{active=false;document.querySelector('#status').textContent='Ready';if(document.querySelector('#repeat').checked)timer=setTimeout(play,800);});
+document.querySelector('#replay').onclick=play;document.querySelector('#repeat').onchange=e=>{if(e.target.checked&&!active)play();else clearTimeout(timer);};
+await demo.prepare();play();
+</script></body></html>
