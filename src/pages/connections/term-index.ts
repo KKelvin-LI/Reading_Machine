@@ -21,6 +21,7 @@ export async function termIndex(pdf:PDFDocumentProxy,sections:ReadingSection[]){
  }return result;})();cache.set(pdf,pending);pending.catch(()=>cache.delete(pdf));return pending;
 }
 export function findTerms(index:Token[][],query:string,mode:string,source?:TermAnchor){
+ if(mode==='definition')return randomPassages(index,source);
  const words=Array.from(query.matchAll(/[\p{L}\p{N}]+(?:[’'][\p{L}]+)?/gu),m=>normal(m[0]));
  const found=new Map<number,TermAnchor[]>();if(!words.length)return found;
  index.forEach((tokens,section)=>{const hits:TermAnchor[]=[];
@@ -29,12 +30,25 @@ export function findTerms(index:Token[][],query:string,mode:string,source?:TermA
  const first=tokens[i].anchor,last=tokens[i+words.length-1].anchor;
  if(source&&first.section===source.section&&first.page===source.page&&first.item===source.item&&first.start===source.start)continue;
  if(first.page!==last.page)continue;
- if(mode==='definition'){
- const after=tokens.slice(i+words.length,i+words.length+18).map(t=>t.word).join(' '),before=tokens.slice(Math.max(0,i-12),i).map(t=>t.word).join(' ');
- const explains=/^(?:is|are|was|were) (?:defined|described|understood|characteri[sz]ed|a|an|the|when|how)|^(?:refers? to|means?|denotes?|describes?|involves?|consists? of|can be defined|is the process)/.test(after)||/(?:defined as|known as|called|termed|definition of)$/.test(before);
- if(!explains)continue;
- }
  hits.push({...first,end:last.end,endItem:last.item});
  }found.set(section,hits);
+ });return found;
+}
+
+/** Pick distinct PDF text passages once per trace, without semantic matching. */
+export function randomPassages(index:Token[][],source?:TermAnchor,random= Math.random){
+ const found=new Map<number,TermAnchor[]>();
+ index.forEach((tokens,section)=>{
+  const passages=new Map<string,TermAnchor>();
+  for(const {anchor:a} of tokens){
+   // Do not select the mother passage as one of its own children.
+   if(source&&a.section===source.section&&a.page===source.page&&a.item>=source.item&&a.item<=(source.endItem??source.item))continue;
+   const key=`${a.page}:${a.item}`,existing=passages.get(key);
+   if(existing){existing.start=Math.min(existing.start,a.start);existing.end=Math.max(existing.end,a.end);}
+   else passages.set(key,{...a});
+  }
+  const candidates=[...passages.values()],count=Math.min(candidates.length,1+Math.floor(random()*3));
+  for(let i=0;i<count;i++){const j=i+Math.floor(random()*(candidates.length-i));[candidates[i],candidates[j]]=[candidates[j],candidates[i]];}
+  found.set(section,candidates.slice(0,count).sort((a,b)=>a.page-b.page||a.item-b.item||a.start-b.start));
  });return found;
 }

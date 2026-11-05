@@ -1,5 +1,5 @@
 /** Small, shared sound bank. Browsers unlock audio on the first user gesture. */
-const files = { close: 'close-mouse-click.mp3', bubble: 'soap-bubble.mp3', hover: 'message-pop.mp3', squishy: 'squishy-click-v2.m4a', lick: 'comic-lick.mp3', retract: 'tape-retract.mp3', paper: 'paper-flutter-fast.mp3', windowUp: 'window-up.mp3', windowDown: 'window-down.mp3', pen: 'pen-click.mp3', scroll: 'scroll-tick.mp3', balloonPop: 'balloon-pop.mp3', wind: 'pi-wind.mp3', ouch: 'ouch-vocal.mp3', spin: 'cartoon-spin.mp3', chapterUnlock: 'chapter-unlock.mp3', correct: 'checker-correct.mp3', wrong: 'checker-wrong.mp3' } as const;
+const files = { close: 'close-mouse-click.mp3', bubble: 'soap-bubble.mp3', hover: 'message-pop.mp3', squishy: 'squishy-click-v2.m4a', lick: 'comic-lick.mp3', retract: 'tape-retract.mp3', paper: 'paper-flutter-fast.mp3', windowUp: 'window-up.mp3', windowDown: 'window-down.mp3', pen: 'pen-click.mp3', scroll: 'scroll-tick.mp3', balloonPop: 'balloon-pop.mp3', wind: 'pi-wind.mp3', ouch: 'ouch-vocal.mp3', spin: 'cartoon-spin.mp3', chapterUnlock: 'chapter-unlock.mp3', correct: 'checker-correct.mp3', wrong: 'checker-wrong.mp3', chew: 'cereal-chewing.mp3', win: 'winning-chimes.mp3' } as const;
 type Sound = keyof typeof files;
 let context: AudioContext | undefined;
 const buffers = new Map<Sound, Promise<AudioBuffer>>();
@@ -51,7 +51,7 @@ export function playSound(name: Sound, durationSeconds?: number) {
       playing.get(name)?.stop();
       if (name === 'squishy') playing.get('hover')?.stop();
       const source = audio.createBufferSource(), gain = audio.createGain();
-      source.buffer = decoded; gain.gain.value = { close: 0.45, bubble: 0.4, hover: 0.35, squishy: 0.4875, lick: 0.45, retract: 0.55, paper: 0.42, windowUp: 1.8, windowDown: 1.8, pen: 0.825, scroll: 0.45, balloonPop: 0.65, wind: 0.405, ouch: 0.65, spin: 0.55, chapterUnlock: 0.65, correct: 0.5, wrong: 0.45 }[name];
+      source.buffer = decoded; gain.gain.value = { close: 0.45, bubble: 0.4, hover: 0.35, squishy: 0.4875, lick: 0.45, retract: 0.55, paper: 0.42, windowUp: 1.8, windowDown: 1.8, pen: 0.825, scroll: 0.45, balloonPop: 0.65, wind: 0.405, ouch: 0.65, spin: 0.55, chapterUnlock: 0.65, correct: 0.5, wrong: 0.45, chew: 0.55, win: 0.5 }[name];
       if(name==='windowUp'||name==='windowDown'){
         playing.get(name==='windowUp'?'windowDown':'windowUp')?.stop();
         if(durationSeconds)source.playbackRate.value=decoded.duration/durationSeconds;

@@ -55,3 +55,6 @@ Original preview MP3s, unchanged. Playback volume is reduced in the application.
 
 - `chapter-unlock.mp3`: Small Padlock Opening by Rudmer_Rotteveel, CC0. https://freesound.org/people/Rudmer_Rotteveel/sounds/536414/
 - `checker-correct.mp3` and `checker-wrong.mp3`: Correct answer (feedback-confirm-65) and Wrong answer (feedback-buzzer-16), SFXMint Learning App pack, CC0. https://sfxmint.com/sets/learning
+
+- `cereal-chewing.mp3`: Eating cereal; close by TylerAM / freesound_community, Pixabay Content License. https://pixabay.com/sound-effects/film-special-effects-eating-cereal-close-71002/ — natural-speed excerpt 1.0–3.8 seconds with edge fades, timed to ending-animation chewing.
+- `winning-chimes.mp3`: Winning chimes, Mixkit, Mixkit Sound Effects Free License. https://mixkit.co/free-sound-effects/win/ — plays when YUM appears.

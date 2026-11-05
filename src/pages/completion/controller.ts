@@ -85,7 +85,7 @@ export function mountCompletion(){
      flight.finished.then(()=>crumb.remove(),()=>crumb.remove());
     }
    }
-   playSound('lick');
+   if(!reduced)playSound('chew');
    await tween(2800,t=>{
     const phase=t*Math.PI*4,swing=Math.sin(phase);
     const chew=(1+Math.cos(phase*2))/2;
@@ -114,6 +114,7 @@ export function mountCompletion(){
     const squeeze=reduced?1:1-.16*(t*t*(3-2*t));
     eaty!.pose(hingeX,mouthY,scale,0,0,1,0,squeeze);
    });
+   playSound('win');
    await tween(420,t=>{
     const e=1-(1-t)**3;
     eaty!.smile(e);
