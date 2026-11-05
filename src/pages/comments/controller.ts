@@ -1,6 +1,7 @@
+import {annotationOrigin,bounceSavedEaty} from '../../ui/annotation-bounce';
 import {eatyActions} from '../../ui/eaty-actions';
 import {applyEatyImage} from '../../three/eaty-art';
-import {captureMarks,mountSavedMarks} from '../highlights/marks';
+import {captureMarks,mountSavedMarks,retractSavedMarks} from '../highlights/marks';
 import {historyArt,pressCross} from '../../three/history-art';
 import {commentArrowArt,pressCommentArrow} from '../../three/comment-arrow';
 import {listComments,putComment,removeComment,type CommentEntry} from './store';
@@ -38,12 +39,12 @@ export function mountComments(root:HTMLElement){
   box.innerHTML='<header class="comment-drag"><span></span></header><textarea placeholder="Type here to leave comment" aria-label="Comment text"></textarea>';
   box.querySelector('header span')!.textContent=`Kelvin Li  ${new Intl.DateTimeFormat('en-AU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'numeric',minute:'2-digit'}).format(entry.createdAt)}`;
   const input=box.querySelector('textarea')!;input.value=entry.body;input.addEventListener('input',()=>{entry.body=input.value;persist(entry);});
-  const arrow=document.createElement('button');arrow.type='button';arrow.className='comment-arrow';arrow.setAttribute('aria-label','Show or hide comment');arrow.setAttribute('aria-expanded',String(entry.open));arrow.innerHTML='<img alt="">';
+  const arrow=document.createElement('button');arrow.type='button';arrow.className='comment-arrow';arrow.dataset.annotationEaty=entry.id;arrow.setAttribute('aria-label','Show or hide comment');arrow.setAttribute('aria-expanded',String(entry.open));arrow.innerHTML='<img alt="">';
   const arrowImage=arrow.querySelector('img')!;
   applyEatyImage(arrowImage);
   let busy=false;
   arrow.setAttribute('aria-label','Eaty: click to toggle comment, double-click to delete');
-  eatyActions(arrow,async()=>{busy=true;try{await removeComment(entry.id);entries=entries.filter(e=>e.id!==entry.id);redrawFoam();views.delete(entry.id);box.remove();arrow.remove();layout();}catch(error){status.textContent='Could not delete this comment.';throw error;}finally{busy=false;}},()=>{if(busy)return;entry.open=!entry.open;arrow.setAttribute('aria-expanded',String(entry.open));persist(entry);layout();});
+  eatyActions(arrow,async()=>{busy=true;try{await removeComment(entry.id);await retractSavedMarks(stage,entry.id);entries=entries.filter(e=>e.id!==entry.id);redrawFoam();views.delete(entry.id);box.remove();arrow.remove();layout();}catch(error){status.textContent='Could not delete this comment.';throw error;}finally{busy=false;}},()=>{if(busy)return;entry.open=!entry.open;arrow.setAttribute('aria-expanded',String(entry.open));persist(entry);layout();});
   function handle(el:HTMLElement,corner?:string){el.addEventListener('pointerdown',event=>{if(event.button!==0||(event.target as Element).closest('button'))return;event.preventDefault();event.stopPropagation();el.setPointerCapture(event.pointerId);const start=box.getBoundingClientRect(),base=windowEl.getBoundingClientRect(),sx=event.clientX,sy=event.clientY;
    const move=(e:PointerEvent)=>{const dx=e.clientX-sx,dy=e.clientY-sy;let x=start.left-base.left,y=start.top-base.top,w=start.width,h=start.height;
     if(!corner){x+=dx;y+=dy;}else{if(corner.includes('e'))w+=dx;if(corner.includes('s'))h+=dy;if(corner.includes('w')){w-=dx;x+=dx;}if(corner.includes('n')){h-=dy;y+=dy;}}
@@ -60,8 +61,8 @@ export function mountComments(root:HTMLElement){
  return {
   async setDocument(documentId?:string){const token=++version;id=documentId;entries=[];views.forEach(v=>{v.box.remove();v.arrow.remove();});views.clear();marks.replaceChildren();status.textContent='';if(!id)return;const loaded=await listComments(id);if(token!==version)return;entries=loaded;entries.forEach(create);redrawFoam();schedule();},
   reset(){version++;id=undefined;entries=[];views.forEach(v=>{v.box.remove();v.arrow.remove();});views.clear();marks.replaceChildren();redrawFoam();},
-  async save(range:Range){const token=version;if(!id)throw new Error('No document');const rects=captureMarks(stage,range);
-   if(!rects.length)throw new Error('No text rectangles');const entry:CommentEntry={id:crypto.randomUUID(),documentId:id,text:range.toString(),body:'',createdAt:Date.now(),rects,width:.3,height:.24,open:true};await putComment(entry);if(token!==version)return;entries.push(entry);redrawFoam();create(entry);root.dispatchEvent(new Event('reader:clear-selection'));layout();views.get(entry.id)!.input.focus({preventScroll:true});
+  async save(range:Range){const origin=annotationOrigin(),token=version;if(!id)throw new Error('No document');const rects=captureMarks(stage,range);
+   if(!rects.length)throw new Error('No text rectangles');const entry:CommentEntry={id:crypto.randomUUID(),documentId:id,text:range.toString(),body:'',createdAt:Date.now(),rects,width:.3,height:.24,open:true};await putComment(entry);if(token!==version)return;entries.push(entry);redrawFoam();create(entry);root.dispatchEvent(new CustomEvent('reader:clear-selection',{detail:{committed:true}}));layout();await bounceSavedEaty(root,entry.id,origin);if(token===version)views.get(entry.id)?.input.focus({preventScroll:true});
   }
  };
 }

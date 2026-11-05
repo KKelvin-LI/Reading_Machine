@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import '../../styles/pages/sidebar-toggle.css';
 export function mountSidebarToggle(root:HTMLElement,onResize:()=>Promise<void>){
  const sidebar=root.querySelector<HTMLElement>('.reading-sidebar')!;sidebar.id='reader-sidebar';
@@ -24,7 +25,7 @@ export function mountSidebarToggle(root:HTMLElement,onResize:()=>Promise<void>){
  new MutationObserver(measure).observe(root,{attributes:true,attributeFilter:['hidden']});
  document.fonts.ready.then(measure);measure();
  button.addEventListener('click',async()=>{
-  if(busy)return;busy=true;measure();const collapsed=!root.classList.contains('sidebar-collapsed');const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(busy)return;busy=true;playSound('close');measure();const collapsed=!root.classList.contains('sidebar-collapsed');const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   try{
    if(!reduced)await button.querySelector('.sidebar-toggle-lines')!.animate([{scale:'1'},{scale:'.86 .72',offset:.45},{scale:'1'}],{duration:220,easing:'ease-in-out'}).finished;
    sidebar.inert=collapsed;root.classList.toggle('sidebar-collapsed',collapsed);button.setAttribute('aria-expanded',String(!collapsed));button.setAttribute('aria-label',collapsed?'Expand reading sidebar':'Collapse reading sidebar');

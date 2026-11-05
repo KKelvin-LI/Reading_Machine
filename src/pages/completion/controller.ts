@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import {createCompletionEaty} from '../../three/completion-eaty';
 import {createPopLettering} from '../../three/pop-lettering';
 
@@ -66,6 +67,7 @@ export function mountCompletion(){
    for(const word of words){if(ink.measureText(line+word+' ').width>748){ink.fillText(line,46,row);row+=32;line='';if(row>1140)break;}line+=word+' ';}
    eaty.setPaper(texture,paperWidth,paperHeight);
    const contactY=mouth.y-paperHeight,startY=-paperHeight-12;
+   if(!reduced)playSound('paper',.75);
    // Approach straight; chewing starts only when the bottom reaches the mouth.
    await tween(750,t=>{
     eaty!.paper(mouth.x,startY+(contactY-startY)*t*t,0);
@@ -83,6 +85,7 @@ export function mountCompletion(){
      flight.finished.then(()=>crumb.remove(),()=>crumb.remove());
     }
    }
+   playSound('lick');
    await tween(2800,t=>{
     const phase=t*Math.PI*4,swing=Math.sin(phase);
     const chew=(1+Math.cos(phase*2))/2;

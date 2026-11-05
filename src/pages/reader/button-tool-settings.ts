@@ -23,8 +23,6 @@ export function mountButtonToolSettings(root:HTMLElement,stack:HTMLElement,tool:
   visuals.push(visual);resets.push(()=>{hover=pressing=false;visual();});
  });
  if(tool==='Checker'){const caption=document.createElement('span');caption.className='checker-caption';caption.textContent='Questions';choices.append(caption);}
- panel.addEventListener('pointerdown',()=>root.dispatchEvent(new CustomEvent('reader:tool-activate',{detail:{tool}})));
- panel.addEventListener('keydown',e=>{if(e.target===panel&&(e.key==='Enter'||e.key===' ')){e.preventDefault();root.dispatchEvent(new CustomEvent('reader:tool-activate',{detail:{tool}}));}});
  panel.addEventListener('pointerenter',()=>document.body.classList.add('tool-slider-active'));panel.addEventListener('pointerleave',()=>document.body.classList.remove('tool-slider-active'));
  root.addEventListener('reader:tool-toggle',event=>{const d=(event as CustomEvent).detail;if(d.tool!==tool)return;panel.hidden=!d.selected;visuals.forEach(fn=>fn());});
  return {reset(){version++;selected=-1;panel.hidden=true;panel.style.setProperty('--tool-colour',palette.colours[0]);resets.forEach(fn=>fn());}};

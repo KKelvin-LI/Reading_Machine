@@ -1,3 +1,4 @@
+import {playSound,startPiWind,stopPiWind} from '../../ui/sounds';
 import {selectionMenuSettings} from '../../config/selection-menu';
 import {catchSettings as cfg} from '../../config/catch';
 import {eatyTopView,eatyFrontView} from '../../three/eaty-art';
@@ -40,11 +41,11 @@ export function mountCatch(){
   raf=requestAnimationFrame(tick);
  }
  async function pop(point?:{x:number;y:number}){
-  if(!active||popped)return;popped=true;cancelAnimationFrame(raf);balloon.hidden=true;
+  if(!active||popped)return;stopPiWind();playSound('balloonPop');playSound('bubble');popped=true;cancelAnimationFrame(raf);balloon.hidden=true;
   const r=balloon.style,animations:Animation[]=[];
   const balloonRect=balloon.getBoundingClientRect();
   flightStart={x:parseFloat(r.left)+parseFloat(r.width)/2,y:parseFloat(r.top)+parseFloat(r.height)/2};
-  mini?.remove();mini=document.createElement('img');mini.src=art;mini.alt='Eaty';mini.className='cc-mini-eaty';
+  playSound('spin');mini?.remove();mini=document.createElement('img');mini.src=art;mini.alt='Eaty';mini.className='cc-mini-eaty';
   const readerRect=document.getElementById('reader')!.getBoundingClientRect();
   const miniSize=Math.min(selectionMenuSettings.diameter,readerRect.width-16,readerRect.height-16)*64/400;
   Object.assign(mini.style,{width:`${miniSize}px`,height:`${miniSize}px`,left:`${flightStart.x-miniSize/2}px`,top:`${flightStart.y-miniSize/2}px`});overlay.append(mini);
@@ -90,6 +91,7 @@ export function mountCatch(){
   savedLine=spans.find(span=>{const r=span.getBoundingClientRect();return event.clientY>=r.top&&event.clientY<=r.bottom&&event.clientX>=r.left&&event.clientX<=r.right;})??savedLine;
  },true);
  async function finish(){
+  stopPiWind();
   overlay.hidden=true;const reader=document.getElementById('reader')!;reader.hidden=false;reader.style.visibility='';active=false;app.inert=oldInert;document.body.style.overflow=oldOverflow;document.body.classList.remove('catch-open');document.dispatchEvent(new Event('catch:visibility'));focus?.focus({preventScroll:true});
  }
  function showContinuation(){
@@ -104,7 +106,7 @@ export function mountCatch(){
   Object.assign(list.style,{position:'absolute',left:`${left-padding}px`,top:`${top-padding}px`,width:`${right-left+padding*2}px`,height:`${bottom-top+padding*2}px`,padding:'0',overflow:'visible',maxHeight:'none'});
   for(const item of captured){const row=document.createElement('span');row.textContent=item.node.textContent;Object.assign(row.style,{position:'absolute',left:`${item.rect.left-left+padding}px`,top:`${item.rect.top-top+padding}px`,font:item.style.font,letterSpacing:item.style.letterSpacing,lineHeight:`${item.rect.height}px`,whiteSpace:'pre',transformOrigin:'left top'});button.append(row);}
   list.append(button);button.addEventListener('click',async()=>{
-   if(scene.classList.contains('is-pressing'))return;scene.classList.add('is-pressing');button.classList.add('chosen');
+   if(scene.classList.contains('is-pressing'))return;playSound('close');scene.classList.add('is-pressing');button.classList.add('chosen');
    if(mini){mini.getAnimations().forEach(a=>a.cancel());const box=button.getBoundingClientRect();Object.assign(mini.style,{position:'absolute',left:`${parseFloat(mini.style.left)-box.left}px`,top:`${parseFloat(mini.style.top)-box.top}px`});button.append(mini);}
    await button.animate([{transform:'scale(1)'},{transform:'scale(.97,.94)',offset:.22},{transform:'scale(1.04,1.08)',offset:.58},{transform:'scale(1)'}],{duration:reduced.matches?1:430,easing:'ease-out'}).finished;
    if(mini){
@@ -120,6 +122,7 @@ export function mountCatch(){
    const range=document.createRange();range.setStart(captured[0].node.firstChild!,0);const lastNode=captured[captured.length-1].node.lastChild!;range.setEnd(lastNode,lastNode.textContent?.length??0);
 
    if(mini){mini.remove();mini=null;}
+   if(!reduced.matches)playSound('windowDown',.2);
    const drop=button.animate([{transform:'translateY(0)',opacity:1},{transform:`translateY(${innerHeight}px)`,opacity:1}],{duration:reduced.matches?1:200,easing:'ease-in',fill:'forwards'});
    // Reveal the reading surface as the continuation box clears the window.
    scene.style.background='transparent';overlay.style.background='transparent';
@@ -165,7 +168,7 @@ export function mountCatch(){
   }
   if(!captured.length)return;
   if(pane){const style=getComputedStyle(pane);columnWidth=pane.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);const text=pane.querySelector<HTMLElement>('.textLayer span');columnFont=text?parseFloat(getComputedStyle(text).fontSize):parseFloat(style.fontSize);}
-active=true;popped=false;clicks=[];pointer=null;angle=velocity=wind=targetWind=balloonRotation=0;nextWind=0;focus=document.activeElement as HTMLElement;oldInert=app.inert;oldOverflow=document.body.style.overflow;app.inert=true;document.body.style.overflow='hidden';document.body.classList.add('catch-open');overlay.hidden=false;overlay.querySelector<HTMLImageElement>('.catch-heading')!.hidden=false;balloon.hidden=false;pin.hidden=true;document.dispatchEvent(new Event('catch:visibility'));
+startPiWind();active=true;popped=false;clicks=[];pointer=null;angle=velocity=wind=targetWind=balloonRotation=0;nextWind=0;focus=document.activeElement as HTMLElement;oldInert=app.inert;oldOverflow=document.body.style.overflow;app.inert=true;document.body.style.overflow='hidden';document.body.classList.add('catch-open');overlay.hidden=false;overlay.querySelector<HTMLImageElement>('.catch-heading')!.hidden=false;balloon.hidden=false;pin.hidden=true;document.dispatchEvent(new Event('catch:visibility'));
   overlay.style.setProperty('--catch-heading-size',getComputedStyle(document.querySelector('#reader-sidebar')!).fontSize);
   await ready;balloon.focus({preventScroll:true});last=performance.now();raf=requestAnimationFrame(tick);
  }

@@ -104,4 +104,4 @@ body #reader.sketch-erasing[data-active-tool="Sketch Pad"] .page-stage,body #rea
 .tool-settings .checker-choices .setting-choice{flex:1;width:auto;aspect-ratio:1;padding:0;display:grid;place-items:center;border-radius:50%}
 .checker-caption{white-space:nowrap;font:inherit}
 
-.reader.highlights-open .tool-settings-stack{z-index:100;visibility:visible}.reader.highlights-open .tool-settings[data-tool="Highlight"]{display:block}
+.reader.highlights-open .tool-settings-stack{z-index:100;visibility:visible}

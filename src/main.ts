@@ -1,3 +1,4 @@
+import {mountScrollSounds} from './ui/scroll-sounds';
 import {mountSounds,playSound} from './ui/sounds';
 import {mountCompletion} from './pages/completion/controller';
 import {mountEatyBrand} from './three/eaty-art';
@@ -30,7 +31,7 @@ app.innerHTML = `
   <div id="error" class="toast" hidden role="alert"><span id="error-message"></span><button id="dismiss-error" class="icon-button" aria-label="Dismiss error">${icon('close')}</button></div>
 `;
 
-mountSounds();
+mountSounds();mountScrollSounds();
 mountEatyBrand();
 
 // Add ?grid=1 to the address to show the reference grid.
@@ -164,9 +165,9 @@ async function returnHome(){
 const readerClose=el<HTMLButtonElement>('reader-close'),closeImage=readerClose.querySelector('img')!;
 readerClose.hidden=true;readerClose.style.display='none';
 readerClose.addEventListener('click',async()=>{if(readerClose.disabled)return;readerClose.disabled=true;try{await pressCross(closeImage,'#151410',.65);await returnHome();el('choose-file').focus();}finally{readerClose.disabled=false;}});
-el('back-home').addEventListener('click',()=>{if(!returningHome)playSound('close');void returnHome().then(()=>el('choose-file').focus());});
+el('back-home').addEventListener('click',()=>{if(!returningHome)playSound('bubble');void returnHome().then(()=>el('choose-file').focus());});
 document.querySelector<HTMLAnchorElement>('.home-wordmark')!.addEventListener('click',event=>{
-  event.preventDefault();if(!returningHome)playSound('close');returnHome();
+  event.preventDefault();if(!returningHome)playSound('bubble');returnHome();
 });
 el('dismiss-error').addEventListener('click', () => { el('error').hidden = true; });
 // Prevent the browser navigating away when files are dropped outside the upload area.

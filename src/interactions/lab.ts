@@ -1,3 +1,4 @@
+import {playSound} from '../ui/sounds';
 import {applyEatyImage} from '../three/eaty-art';
 import {createPointingHand} from '../three/pointing-hand';
 import {nearPdfText} from './text-hit';
@@ -74,7 +75,8 @@ export async function startLab(){
   function disposeGroup(group:THREE.Group){for(const o of [...group.children]){o.traverse(c=>{if(c instanceof THREE.Mesh){c.geometry.dispose();const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>m.dispose());}});group.remove(o);}}
   let highlightHold:ReturnType<typeof setTimeout>|undefined;
   function cancelHighlightHold(){clearTimeout(highlightHold);highlightHold=undefined;}
-  function clearSelection(){
+  function clearSelection(){resetSelection(true);}
+  function resetSelection(animate:boolean){
     cancelHighlightHold();
     const first=savedRange&&!savedRange.collapsed?selectionLines(savedRange)[0]:undefined;
     const retractX=first?first.left-12:highlightOrigin.x,retractY=innerHeight-(first?first.top+first.height/2:highlightOrigin.y);
@@ -83,9 +85,18 @@ export async function startLab(){
     selectedText.clear();savedRange=null;window.getSelection()?.removeAllRanges();disposeGroup(letters);disposeGroup(masks);
     textSelection.end();
     pending?.dispose();pending=null;
-    for(const transition of transitions.values()){scene.add(transition.root);const spring=new Spring();spring.value=1;spring.target=0;releasing.push({transition,spring,start:performance.now(),x:retractX,y:retractY});}transitions.clear();
+    if(animate&&transitions.size&&!reader.hidden)playSound('retract',Math.max(...[...transitions.values()].map(t=>t.retractDuration))/1000);
+    for(const transition of transitions.values()){if(!animate){transition.dispose();continue;}scene.add(transition.root);const spring=new Spring();spring.value=1;spring.target=0;releasing.push({transition,spring,start:performance.now(),x:retractX,y:retractY});}transitions.clear();
     rowSpring.target=0;stage.classList.toggle('squishy-selection',enabled);
   }
+  // Outside clicks use the same animated withdrawal as clicks in the text pane.
+  // The action wheel must keep its source selection until its action completes.
+  window.addEventListener('pointerdown',event=>{
+    if(event.button!==0||reader.hidden||reader.inert)return;
+    const target=event.target;
+    if(!(target instanceof Element)||target.closest('.selection-wheel,.comment-arrow,.highlight-delete-tip,[data-comment-ui]')||stage.contains(target))return;
+    clearSelection();
+  },true);
   document.getElementById('clear-effects')!.onclick=clearSelection;
   document.getElementById('squishy-on')!.onchange=e=>{enabled=(e.target as HTMLInputElement).checked;if(!enabled)clearSelection();};
   document.getElementById('ruler-mode')!.onchange=e=>{rulerMode=(e.target as HTMLSelectElement).value;clearSelection();};
@@ -93,6 +104,7 @@ export async function startLab(){
   const controls:{el:HTMLButtonElement;model:THREE.Group;spring:Spring}[]=[];
   document.querySelectorAll<HTMLButtonElement>('button:not(#dismiss-error):not([data-native-control])').forEach(el=>{
     const model=(el.classList.contains('icon-button')?round:red).clone(true);scene.add(model);const spring=new Spring();controls.push({el,model,spring});el.classList.add('squishy-control');
+    el.addEventListener('click',()=>{if(!el.disabled&&!el.matches('#back-home,#reader-close,.history-close,.highlights-close,.history-delete'))playSound('squishy');});
     el.addEventListener('pointerdown',()=>spring.target=1);el.addEventListener('pointerleave',()=>spring.target=0);
     el.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter')spring.target=1;});el.addEventListener('keyup',()=>spring.target=0);
   });
@@ -123,7 +135,9 @@ export async function startLab(){
   reader.addEventListener('pointerdown',e=>{
     if(reader.dataset.activeTool==='Sketch Pad'||(reader.dataset.activeTool==='Paced Reading'&&reader.dataset.pacedPaused!=='true'))return;
     const target=e.target as Element;
-    if(target.closest('button,input,textarea,select,a,label,[data-comment-ui]'))return;
+    // Reader controls (including the full-width toggle) must never start a lick.
+    // Cancel any pending text hold before a control changes the page layout.
+    if(target.closest('button,input,textarea,select,a,label,[data-comment-ui],[data-native-control]')){cancelHighlightHold();return;}
     if(!stage.contains(target)&&!nearPdfText(stage,e.clientX,e.clientY))return;
     if(e.button!==0)return;pointer={x:e.clientX,y:e.clientY};down=true;cursorPress.target=1;
     clearSelection();
@@ -134,6 +148,7 @@ export async function startLab(){
         highlightHold=undefined;
         if(reader.hidden||reader.inert||!enabled)return;
         if(textSelection.begin(start.x,start.y)){
+          playSound('lick');
           down=true;highlightOrigin={x:start.x,y:start.y};eatyAnchor=null;
           stage.setPointerCapture(start.id);
           pending=new WrappedHighlight(anchor,start.x,start.y,cursorPress.value,cursorHeight);strips.add(pending.root);
@@ -146,8 +161,9 @@ export async function startLab(){
   document.getElementById('back-home')!.addEventListener('click',()=>{clearSelection();inside=false;});
   document.addEventListener('reader:page-rendered',()=>{clearSelection();});
   reader.addEventListener('reader:highlights-open',clearSelection);
-  reader.addEventListener('reader:clear-selection',clearSelection);
+  reader.addEventListener('reader:clear-selection',event=>resetSelection(!(event as CustomEvent).detail?.committed));
   reader.addEventListener('reader:select-continuation',event=>{
+    playSound('lick');
     clearSelection();eatyAnchor=null;
     const range=(event as CustomEvent<{range:Range}>).detail.range;
     const selection=window.getSelection();selection?.removeAllRanges();selection?.addRange(range);

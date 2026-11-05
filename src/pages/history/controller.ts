@@ -14,7 +14,7 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
   const close=document.createElement('button');close.type='button';close.className='history-close';close.dataset.nativeControl='';close.setAttribute('aria-label','Close reading history');
   const closeArt=document.createElement('img');closeArt.alt='';close.append(closeArt);panel.querySelector('.history-search')!.append(close);
   void historyArt('cross','#151410').then(f=>closeArt.src=f[0]);
-  close.addEventListener('click',async()=>{if(!active||busy||close.disabled)return;close.disabled=true;try{await pressCross(closeArt,'#151410',cfg.deleteSeconds);if(active&&!busy)await toggle();}finally{close.disabled=false;}});
+  close.addEventListener('click',async()=>{if(!active||busy||close.disabled)return;close.disabled=true;try{await pressCross(closeArt,'#151410',cfg.deleteSeconds);if(active&&!busy)await toggle(false);}finally{close.disabled=false;}});
   home.append(panel);
   const input=panel.querySelector('input')!,rows=panel.querySelector<HTMLElement>('.history-rows')!,status=panel.querySelector<HTMLElement>('.history-status')!;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
@@ -27,10 +27,10 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
     panel.style.visibility='';
     if(!show){panel.hidden=true;home.classList.remove('history-open');}
   }
-  async function toggle(){
-    if(busy)return;const navigation=++navigationVersion;busy=true;pressing=true;suppress=false;visual();const opening=!active;
+  async function toggle(pressButton=true){
+    if(busy)return;const navigation=++navigationVersion;busy=true;pressing=pressButton;suppress=!pressButton;if(!pressButton)hover=false;visual();const opening=!active;
     try{
-      await (await ready)?.press();
+      if(pressButton)await (await ready)?.press();
       if(navigation!==navigationVersion)return;
       pressing=false;suppress=true;visual();
       if(opening){home.dispatchEvent(new Event('home:history-open'));await refresh();}

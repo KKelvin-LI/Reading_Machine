@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import {expandableMotion} from '../../ui/expand-motion';
 import {sectionSettings as cfg} from '../../config/sections';
 import {createSquishyNavigation} from '../../three/squishy-navigation';
@@ -44,7 +45,8 @@ export function mountSectionNavigation(root:HTMLElement,go:(index:number,replace
    arrow.setAttribute('aria-label',`Choose section for ${['left','middle','right'][slot]} panel`);arrow.setAttribute('aria-expanded','false');
    arrow.style.setProperty('--arrow-colour',cfg.textColours[Math.max(0,index)%cfg.textColours.length]);
    arrow.innerHTML='<svg viewBox="0 0 24 18" aria-hidden="true"><path d="M4 5 L12 13 L20 5"/></svg>';wrap.append(arrow);
-   arrow.onclick=async()=>{
+   arrow.onclick=async event=>{
+    if(event.isTrusted)playSound('close');
     const existing=openMenus.get(wrap);if(existing){await existing();return;}if(!wrap.isConnected)return;
     arrow.setAttribute('aria-expanded','true');wrap.classList.add('picker-open');
     const menu=document.createElement('div');menu.className='section-picker-menu';menu.setAttribute('role','group');menu.setAttribute('aria-label','Choose a section');wrap.append(menu);

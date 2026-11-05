@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import {applyEatyImage} from '../../three/eaty-art';
 import {settings} from '../../interactions/settings';
 /** Eaty extends a rounded tongue; existing spring motion and selection targets are preserved. */
@@ -11,6 +12,7 @@ export function createElasticCursor(menu:HTMLElement){
  const shine=document.createElementNS(ns,'path');shine.setAttribute('fill','none');shine.setAttribute('stroke','#fff0f6');shine.setAttribute('stroke-opacity','.55');shine.setAttribute('stroke-linecap','round');svg.append(shine);const jumper=document.createElementNS(ns,'g');jumper.append(frog);svg.append(jumper);jumper.style.transformOrigin='200px 200px';
  let jump:Animation|undefined,hurt:Animation|undefined;
  let x=200,y=200,tx=200,ty=200,vx=0,vy=0,raf=0,last=0,visible=false,retracting=false;
+ let tongueExtended=false;
  let finishRetraction:(()=>void)|undefined;
  function draw(){
   const dx=x-200,dy=y-200,d=Math.hypot(dx,dy),angle=Math.atan2(dy,dx)*180/Math.PI;
@@ -24,7 +26,10 @@ export function createElasticCursor(menu:HTMLElement){
   path.setAttribute('d',`M ${root} ${-width} C ${root+(end-root)*.35} ${-width*1.05} ${end-tipRadius} ${-width*.85} ${end-tipRadius} ${-width*.85} Q ${end+tipRadius} 0 ${end-tipRadius} ${width*.85} C ${end-tipRadius} ${width*.85} ${root+(end-root)*.35} ${width*1.05} ${root} ${width} Z`);
   shine.setAttribute('stroke-width',String(width*.22));
   shine.setAttribute('d',`M ${root+7} ${-width*.45} Q ${(root+end)/2} ${-width*.65} ${Math.max(root+7,end-width)} ${-width*.36}`);
-  path.style.display=shine.style.display=d>20?'':'none';
+  const extended=d>20;
+  if(extended&&!tongueExtended&&!retracting)playSound('lick');
+  if(extended)tongueExtended=true;
+  path.style.display=shine.style.display=extended?'':'none';
  }
  function tick(now:number){raf=0;if(!visible)return;const dt=Math.min((now-last)/1000||.016,.025);last=now;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){x=tx;y=ty;vx=vy=0;}else{vx+=(900*(tx-x)-52*vx)*dt;vy+=(900*(ty-y)-52*vy)*dt;x+=vx*dt;y+=vy*dt;}
@@ -49,10 +54,11 @@ export function createElasticCursor(menu:HTMLElement){
   ],{duration,easing:'ease-in-out',fill:'forwards'});
   await hurt.finished.catch(()=>{});
  },isStretched(){return Math.hypot(x-200,y-200)>20;},jumpFrom(clientX:number,clientY:number){
+  playSound('bubble');
   jump?.cancel();const r=menu.getBoundingClientRect(),scale=400/r.width,dx=(clientX-r.left-r.width/2)*scale,dy=(clientY-r.top-r.height/2)*scale;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   svg.classList.add('eaty-arriving');
   jump=jumper.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:`translate(${dx*.55}px,${dy*.55-90}px)`,offset:.45},{transform:'translate(0,0)',offset:.85},{transform:'translate(0,0)'}],{duration:960,easing:'cubic-bezier(.22,.7,.2,1)'});
   void jump.finished.then(()=>svg.classList.remove('eaty-arriving')).catch(()=>{});
- },async retract(){retracting=true;cancelAnimationFrame(raf);raf=0;const sx=x,sy=y,start=performance.now();await new Promise<void>(resolve=>{finishRetraction=resolve;if(matchMedia('(prefers-reduced-motion: reduce)').matches){x=y=200;draw();finishRetraction=undefined;resolve();return;}function back(now:number){const t=Math.min(1,(now-start)/180),k=1-t;x=200+(sx-200)*k;y=200+(sy-200)*k;draw();if(t<1&&Math.hypot(x-200,y-200)>20)raf=requestAnimationFrame(back);else{x=y=200;draw();raf=0;finishRetraction=undefined;resolve();}}raf=requestAnimationFrame(back);});},show(cx:number,cy:number){retracting=false;visible=true;x=y=200;vx=vy=0;move(cx,cy);draw();},hide(){hurt?.cancel();jump?.cancel();svg.classList.remove('eaty-arriving');visible=false;cancelAnimationFrame(raf);raf=0;finishRetraction?.();finishRetraction=undefined;}};
+ },async retract(){if(Math.hypot(x-200,y-200)>20)playSound('retract',.18);retracting=true;cancelAnimationFrame(raf);raf=0;const sx=x,sy=y,start=performance.now();await new Promise<void>(resolve=>{finishRetraction=resolve;if(matchMedia('(prefers-reduced-motion: reduce)').matches){x=y=200;draw();finishRetraction=undefined;resolve();return;}function back(now:number){const t=Math.min(1,(now-start)/180),k=1-t;x=200+(sx-200)*k;y=200+(sy-200)*k;draw();if(t<1&&Math.hypot(x-200,y-200)>20)raf=requestAnimationFrame(back);else{x=y=200;draw();raf=0;finishRetraction=undefined;resolve();}}raf=requestAnimationFrame(back);});},show(cx:number,cy:number){tongueExtended=false;retracting=false;visible=true;x=y=200;vx=vy=0;move(cx,cy);draw();},hide(){hurt?.cancel();jump?.cancel();svg.classList.remove('eaty-arriving');visible=false;cancelAnimationFrame(raf);raf=0;finishRetraction?.();finishRetraction=undefined;}};
 }

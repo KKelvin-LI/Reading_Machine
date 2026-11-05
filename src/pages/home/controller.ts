@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import { mountAbout } from '../about/controller';
 import { createFrog, type FrogView } from '../../three/home-frog';
 import { homeSettings } from '../../config/home';
@@ -18,6 +19,7 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
   button.addEventListener('click', async () => {
     if (busy||choosing) return;
     choosing=true;
+    playSound('bubble');
     try { await view?.click(); input.click(); }
     finally { choosing=false; }
   });
@@ -26,6 +28,7 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
     if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') { status.textContent = 'Please choose a PDF file.'; return; }
     if (file.size > homeSettings.maxFileBytes) { status.textContent = 'Please choose a PDF smaller than 100 MB.'; return; }
     busy = true; button.setAttribute('aria-busy', 'true');
+    if(dropped)playSound('bubble');
     try {
       const model = await ready;
       status.textContent = 'Delivering your document…';

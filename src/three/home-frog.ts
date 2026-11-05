@@ -1,3 +1,4 @@
+import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { homeSettings as cfg } from '../config/home';
@@ -128,7 +129,7 @@ export async function createFrog(host:HTMLElement):Promise<FrogView>{
  function reset(){holdingAtBottom=false;open(0);tongue.visible=paper.visible=false;if(oldTongue)oldTongue.visible=true;running=false;host.append(renderer.domElement);renderer.domElement.style.zIndex='';renderer.domElement.style.display=visible?'':'none';layout();render();}
  function foreground(){layout();running=true;document.body.append(renderer.domElement);renderer.domElement.style.zIndex='0';renderer.domElement.style.display='';}
  reset();new ResizeObserver(()=>{if(!running){layout();render();}}).observe(host);
- return {setVisible(v){visible=v;if(!running)renderer.domElement.style.display=v?'':'none';},reset,releaseHold(){if(holdingAtBottom)reset();},click:expand,async deliver(){await expanding;foreground();paper.visible=true;const dropY=(p:number)=>innerHeight+100-(innerHeight+200)*p*p;const crossing=(target:number)=>Math.sqrt(THREE.MathUtils.clamp((innerHeight+100-target)/(innerHeight+200),0,1));const eyesY=cy+.45*scale,legsY=cy-1.15*scale,eyesAt=crossing(eyesY),legsAt=crossing(legsY);await tween(cfg.dropMs*1.1,p=>{const y=dropY(p),mouthProgress=THREE.MathUtils.clamp((p-eyesAt)/Math.max(.001,1-eyesAt),0,1),tongueProgress=THREE.MathUtils.clamp((p-legsAt)/Math.max(.001,1-legsAt),0,1);open(Math.sin(mouthProgress*Math.PI/2));paper.position.set(cx,y,150);paper.rotation.z=Math.sin(p*Math.PI*2)*.12;if(p>=legsAt)rope(new THREE.Vector3(cx,cy*(1-tongueProgress),140));else tongue.visible=false;});/* Hold the caught pose at the canvas bottom while openReader loads the PDF. */},async lift(panel,reverse=false,holdAtBottom=false){
+ return {setVisible(v){visible=v;if(!running)renderer.domElement.style.display=v?'':'none';},reset,releaseHold(){if(holdingAtBottom)reset();},click:expand,async deliver(){let licked=false;await expanding;foreground();paper.visible=true;if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playSound('paper',cfg.dropMs*1.1/1000);const dropY=(p:number)=>innerHeight+100-(innerHeight+200)*p*p;const crossing=(target:number)=>Math.sqrt(THREE.MathUtils.clamp((innerHeight+100-target)/(innerHeight+200),0,1));const eyesY=cy+.45*scale,legsY=cy-1.15*scale,eyesAt=crossing(eyesY),legsAt=crossing(legsY);await tween(cfg.dropMs*1.1,p=>{const y=dropY(p),mouthProgress=THREE.MathUtils.clamp((p-eyesAt)/Math.max(.001,1-eyesAt),0,1),tongueProgress=THREE.MathUtils.clamp((p-legsAt)/Math.max(.001,1-legsAt),0,1);open(Math.sin(mouthProgress*Math.PI/2));paper.position.set(cx,y,150);paper.rotation.z=Math.sin(p*Math.PI*2)*.12;if(p>=legsAt){if(!licked){licked=true;playSound('lick');}rope(new THREE.Vector3(cx,cy*(1-tongueProgress),140));}else tongue.visible=false;});/* Hold the caught pose at the canvas bottom while openReader loads the PDF. */},async lift(panel,reverse=false,holdAtBottom=false){
   let keepExtended=false;
   const needsReach=!tongue.visible;
   foreground();paper.visible=false;frog.visible=true;
@@ -143,6 +144,7 @@ export async function createFrog(host:HTMLElement):Promise<FrogView>{
   };
   positionPage(reverse?0:1);panel.style.visibility='';
   try{
+   if(needsReach&&!reverse)playSound('lick');
    if(reverse){
     // Reach the existing page before carrying it down.
     await tween(cfg.returnMs*.15,p=>{open(p);if(p>.001)rope(positionPage(0));});
@@ -150,6 +152,9 @@ export async function createFrog(host:HTMLElement):Promise<FrogView>{
     const start=new THREE.Vector3(cx,cy+(1.04-1.4)*scale,140),end=positionPage(1);
     await tween(cfg.dropMs*.7,p=>{const t=p*p*(3-2*p);open(Math.min(1,p*2));rope(start.clone().lerp(end,t));});
    }else{open(1);rope(positionPage(1));render();}
+   // Moving a panel is not a tongue withdrawal. A history-to-PDF handoff
+   // keeps the tongue extended, so neither half of that switch plays retract.
+   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)playSound(reverse?'windowDown':'windowUp',(reverse?cfg.returnMs:cfg.liftMs)*1.1/1000);
    await tween((reverse?cfg.returnMs:cfg.liftMs)*1.1,p=>{
     const t=p*p*(3-2*p),travel=reverse?t:1-t;
     open(1);rope(positionPage(travel));
@@ -159,6 +164,7 @@ export async function createFrog(host:HTMLElement):Promise<FrogView>{
     if(holdAtBottom){panel.hidden=true;keepExtended=holdingAtBottom=true;return;}
     const from=new THREE.Vector3(cx,-2,140);
     const to=new THREE.Vector3(cx,cy+(1.04-1.4)*scale,(surface(0,1.04)-.15)*scale);
+    playSound('retract',cfg.returnMs*.35/1000);
     // Pull the entire visible ribbon back first; then close the mouth around it.
     await tween(cfg.returnMs*.35,p=>{
      const t=p*p*(3-2*p);

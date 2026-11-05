@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import {createPopLettering} from '../../three/pop-lettering';
 import {createElasticCursor} from './elastic-cursor';
 import {nearPdfText} from '../../interactions/text-hit';
@@ -55,7 +56,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     image.style.left=`${Math.max(8,Math.min(innerWidth-width-8,rect.left+(rect.width-width)/2))}px`;
     image.style.top=`${Math.max(8,Math.min(innerHeight-height-8,rect.top+rect.height/2-rect.width*96/400-height+height*.12))}px`;
     image.style.transformOrigin='bottom center';
-    image.hidden=false;
+    image.hidden=false;playSound('ouch');
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     ouchAnimation=image.animate(reduced?[{opacity:1},{opacity:0}]:[
       {transform:'scale(1)',opacity:1,offset:0},
@@ -80,7 +81,18 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     if(stretched)await showOuch(rect);
     if(token===version)close();
   }
-  function hover(index:number){active=index;menu.querySelectorAll('[data-visual]').forEach((item,i)=>item.classList.toggle('is-hover',i===index));view?.hover(index);}
+  menu.addEventListener('eaty:annotation-handoff',event=>{
+    const {resolve}=(event as CustomEvent<{resolve:()=>void}>).detail;
+    const token=version;
+    void (async()=>{
+      try{
+        hover(-1);menu.classList.add('is-retracting');
+        await elastic.retract();
+        if(token===version){elastic.hide();menu.hidden=true;view?.hide();}
+      }finally{resolve();}
+    })();
+  });
+  function hover(index:number){if(index>=0&&index!==active&&!busy)playSound('hover');active=index;menu.querySelectorAll('[data-visual]').forEach((item,i)=>item.classList.toggle('is-hover',i===index));view?.hover(index);}
   function prepare(){return ready??=createSelectionWheel(menu.querySelector<HTMLElement>('.wheel-model')!).then(v=>{view=v;menu.classList.add('model-ready');if(!menu.hidden)hover(active);return v;}).catch(e=>{console.warn(e);return undefined;});}
   function releasePointer(){if(down&&root.hasPointerCapture(down.id))root.releasePointerCapture(down.id);}
   function close(){menu.classList.remove('is-retracting');elastic.hide();version++;releasePointer();down=undefined;drag=false;busy=false;menu.hidden=true;root.classList.remove('selection-wheel-open');view?.hide();active=-1;}
@@ -107,7 +119,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
       detail:{padding:parseFloat(getComputedStyle(root).fontSize)*.3,resolve},
     })));
     if(token!==version)return false;
-    root.dispatchEvent(new Event('reader:clear-selection'));return true;
+    root.dispatchEvent(new CustomEvent('reader:clear-selection',{detail:{committed:true}}));return true;
   }
 
   function finishDeferredSelection(){
@@ -133,7 +145,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
       await new Promise<void>(resolve=>root.dispatchEvent(new CustomEvent('reader:animate-selection',{detail:{padding:parseFloat(getComputedStyle(root).fontSize)*.3,resolve}})));
       if(token!==version)return;
       await perform(index,saved);
-      root.dispatchEvent(new Event('reader:clear-selection'));
+      root.dispatchEvent(new CustomEvent('reader:clear-selection',{detail:{committed:true}}));
     }catch{tell('This action could not be completed. Please try again.');}
     close();if(action.id!=='comment')stage.focus({preventScroll:true});
   }

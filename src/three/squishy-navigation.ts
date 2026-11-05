@@ -1,3 +1,4 @@
+import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {longCushionGeometry} from './long-cushion';
 import { aboutSettings as cfg } from '../config/about';
@@ -111,12 +112,14 @@ export async function createSquishyNavigation(host: HTMLElement, label: HTMLElem
   const observer=new ResizeObserver(resize);observer.observe(host);observer.observe(control);
   measureLabel();
   return {
-    show(value:boolean){const entering=value&&!visible;visible=value;if(entering)expand();if(value){resize();scheduleLayout();}else{cancelAnimationFrame(layoutFrame);cancelAnimationFrame(raf);settle();}},
+    show(value:boolean){const entering=value&&!visible;visible=value;if(entering){if(control.matches(':hover')&&!control.closest('[inert]')&&!control.matches(':disabled'))playSound('hover');expand();}if(value){resize();scheduleLayout();}else{cancelAnimationFrame(layoutFrame);cancelAnimationFrame(raf);settle();}},
     setColour(colour:string){material.color.set(colour);render(performance.now());},
     press(point?:{clientX:number;clientY:number}):Promise<void>{
       if(point){const b=host.getBoundingClientRect();pressPoint={x:(point.clientX-b.left)/b.width,y:(point.clientY-b.top)/b.height};}
-      if(disposed||matchMedia('(prefers-reduced-motion: reduce)').matches)return Promise.resolve();
-      expandy?.cancel();if(pending)return pending;
+      if(disposed)return Promise.resolve();
+      if(pending)return pending;
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){playSound('squishy',cfg.pressSeconds);return Promise.resolve();}
+      expandy?.cancel();
       if(isLong()){
         const point=pressPoint??{x:.5,y:.5};
         const x=s.camera.left+THREE.MathUtils.clamp(point.x,0,1)*(s.camera.right-s.camera.left);
@@ -126,6 +129,7 @@ export async function createSquishyNavigation(host: HTMLElement, label: HTMLElem
       pressPoint=undefined;
       duration=Math.max(.1,cfg.pressSeconds);elapsed=0;lastFrame=performance.now();
       pending=new Promise<void>(resolve=>{completion=resolve;});
+      playSound('squishy',duration);
       render(lastFrame);cancelAnimationFrame(raf);raf=requestAnimationFrame(animate);return pending;
     },
     dispose(){control.removeEventListener('pointerdown',rememberPress);control.removeEventListener('pointerenter',expand);expandy?.cancel();settle();disposed=true;cancelAnimationFrame(layoutFrame);cancelAnimationFrame(raf);s.renderer.domElement.removeEventListener('webglcontextrestored',restored);observer.disconnect();button.geometry.dispose();material.dispose();label.style.transform='';canvas.remove();},
