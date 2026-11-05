@@ -1,3 +1,4 @@
+import {playSound} from '../../ui/sounds';
 import {CompletionGate} from './completion-gate';
 import {mountConnections} from '../connections/controller';
 import {mountChecker} from '../checker/controller';
@@ -51,6 +52,7 @@ export function mountReader(root:HTMLElement){
   window.addEventListener('history:deleted',event=>{if((event as CustomEvent<string>).detail===id){historyDeleted=true;clearTimeout(saveTimer);}});
   function saveSectionState(){if(historyDeleted)return;try{localStorage.setItem(sectionStateKey(),JSON.stringify({current:activeSection,unlocked:unlockedSection,completed:[...completedSections],fractions:[...sectionFractions]}));}catch(error){console.warn('Could not save section progress',error);}}
   function completeSection(index:number){if(index<=unlockedSection){const fresh=!completedSections.has(index);completedSections.add(index);sectionFractions.set(index,1);update();
+      if(fresh&&progressPlan.checkpoints.slice(0,cfg.tools.length-1).includes(index))playSound('unlock');
       if(fresh&&!reduced.matches){const bar=progress.querySelector<HTMLElement>(`.reading-track[data-section="${index}"]`);if(bar){const ls=parseFloat(getComputedStyle(root).getPropertyValue('--reader-ls'))||.55;const grow=ls*parseFloat(getComputedStyle(root).fontSize)*.5;const r=bar.getBoundingClientRect();bar.animate([{transform:'scale(1)'},{transform:`scale(${1+grow*2/Math.max(1,r.width)},${1+grow*2/Math.max(1,r.height)})`,offset:.45},{transform:'scale(.98,.96)',offset:.75},{transform:'scale(1)'}],{duration:600,easing:'cubic-bezier(.22,.7,.2,1)'});}}saveSectionState();}}
 
   const sectionNavigation=mountSectionNavigation(root,async (index,replace,selection)=>{

@@ -1,3 +1,4 @@
+import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {loader,studio} from './about-assets';
 const cache=new Map<string,Promise<string[]>>();
@@ -21,6 +22,7 @@ export function historyArt(kind:'cross'|'line',colour:string){
   })();cache.set(key,work);return work;
 }
 export async function pressCross(img:HTMLImageElement,colour:string,seconds:number){
+  playSound('close');
   const frames=await historyArt('cross',colour);
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   await new Promise<void>(resolve=>{const start=performance.now();function tick(now:number){const t=Math.min(1,(now-start)/(seconds*1000));const weight=t<.45?Math.sin(t/.45*Math.PI/2):Math.cos((t-.45)/.55*Math.PI/2)**2;img.src=frames[Math.round(weight*12)];if(t<1)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick);});
