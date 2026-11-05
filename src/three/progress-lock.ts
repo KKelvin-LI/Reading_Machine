@@ -1,3 +1,4 @@
+import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {cushionMaterial} from './cushion';
 const cache=new Map<string,string[]>();
@@ -35,7 +36,7 @@ export function renderProgressLock(el:HTMLElement,animate:boolean){
 
 /** The chapter cover uses the same inflated foam lock, without its progress platform. */
 export async function animateChapterLock(cover:HTMLElement,colour:string){
- const images=frames(colour,colour,false),img=new Image();img.alt='Unlocking chapter';img.style.cssText='width:clamp(4rem,16%,8rem);height:auto';img.src=images[0];cover.replaceChildren(img);
+ const images=frames(colour,colour,false),img=new Image();img.alt='Unlocking chapter';img.style.cssText='width:clamp(4rem,16%,8rem);height:auto';img.src=images[0];cover.replaceChildren(img);playSound('chapterUnlock');
  await new Promise<void>(resolve=>{const start=performance.now();function tick(now:number){if(!cover.isConnected){resolve();return;}const t=Math.min(1,(now-start)/870);img.src=images[Math.round(t*20)];if(t<1)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick);});
 }
 

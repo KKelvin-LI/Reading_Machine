@@ -128,11 +128,13 @@ export function mountReader(root:HTMLElement){
   }
   const replay=root.querySelector<HTMLButtonElement>('#reading-replay')!;
   let replayUnlocked:boolean|undefined;
+  let pendingCompletionUnlock=false;
   function updateReplay(){
     const unlocked=highWater>=100-1e-8;
     replay.disabled=!unlocked;
     replay.title=unlocked?'Replay finishing animation':'Finish 100% to unlock replay';
     if(unlocked===replayUnlocked)return;
+    if(ready&&replayUnlocked===false&&unlocked)pendingCompletionUnlock=true;
     replayUnlocked=unlocked;
     const band=progressPlan.checkpoints.length;
     renderProgressReplay(replay,unlocked,cfg.colours[band%cfg.colours.length],cfg.colours[(band+1)%cfg.colours.length]);
@@ -146,13 +148,15 @@ export function mountReader(root:HTMLElement){
   const completionGate=new CompletionGate({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)});
   function checkCompletion(){
     completionGate.check(id??pdf?.fingerprints[0],highWater>=100-1e-8,ready&&!disposed&&!root.inert&&!root.hidden,finished=>{
-      const detail={reader:root,accepted:false,finished};
+      const detail={reader:root,accepted:false,finished:(success:boolean)=>{if(success)pendingCompletionUnlock=false;finished(success);}};
       flush();document.dispatchEvent(new CustomEvent('reader:first-completion',{detail}));
       return detail.accepted;
-    });
+    },pendingCompletionUnlock);
   }
   new MutationObserver(()=>queueMicrotask(checkCompletion)).observe(root,{attributes:true,attributeFilter:['hidden','inert']});
   document.addEventListener('reader:page-rendered',checkCompletion);
+  document.addEventListener('catch:visibility',checkCompletion);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkCompletion();});
   function update(){
     highWater=progressPlan.weights.reduce((sum,w,i)=>sum+w*(completedSections.has(i)?1:sectionFractions.get(i)??0),0)/progressPlan.total*100;
     updateReplay();
@@ -326,7 +330,7 @@ export function mountReader(root:HTMLElement){
     async show(document:PDFDocumentProxy,historyId?:string,page=1,percent=0,animate=true){
       connections.reset();checker.setDocument(document.fingerprints[0]??'');
       sketchPad.setDocument(historyId??document.fingerprints[0]??'temporary-document');
-      flush();selectionMenu.reset();toolsButton.reset();disposed=false;historyDeleted=false;pdf=document;id=historyId;currentPage=page;highWater=percent;selected.clear();toolSettings.reset();pacedReading.reset();toolList.replaceChildren();update();
+      flush();ready=false;pendingCompletionUnlock=false;replayUnlocked=undefined;selectionMenu.reset();toolsButton.reset();disposed=false;historyDeleted=false;pdf=document;id=historyId;currentPage=page;highWater=percent;selected.clear();toolSettings.reset();pacedReading.reset();toolList.replaceChildren();update();
       await highlights.setDocument(historyId,document.numPages);
       await comments.setDocument(historyId);
       root.hidden=false;

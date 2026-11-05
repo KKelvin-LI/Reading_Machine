@@ -1,3 +1,5 @@
+import {playSound} from '../../ui/sounds';
+import {applyEatyImage} from '../../three/eaty-art';
 import {termIndex,findTerms,type TermAnchor} from './term-index';
 import type {PDFDocumentProxy} from 'pdfjs-dist';
 import type {ReadingSection} from '../sections/detection';
@@ -24,13 +26,18 @@ export function mountConnections(root:HTMLElement,info:()=>{count:number;unlocke
  const defs=node('defs',{}),clip=document.createElementNS(ns,'clipPath');clip.id='connections-reader-clip';defs.append(clip);
  root.querySelectorAll<HTMLElement>('.section-reading-pane').forEach(p=>{const b=p.getBoundingClientRect(),r=document.createElementNS(ns,'rect');for(const [k,v] of Object.entries({x:b.left+1,y:b.top+1,width:Math.max(0,b.width-2),height:Math.max(0,b.height-2),rx:parseFloat(getComputedStyle(p).borderTopLeftRadius)||0}))r.setAttribute(k,String(v));clip.append(r);});
  const paint=(a:Anchor)=>{const r=range(a),pane=root.querySelector<HTMLElement>(`.section-reading-pane[data-section="${a.section}"]`);if(!r||!pane)return;const c=pane.getBoundingClientRect(),raw=Array.from(r.getClientRects()).filter(b=>b.width>0&&b.height>0);
- for(const b of raw){if(b.bottom<c.top||b.top>c.bottom||b.right<c.left||b.left>c.right)continue;
- const image=node('image',{x:b.left-b.height*.25,y:b.top,width:b.width+b.height*.5,height:b.height,'clip-path':'url(#connections-reader-clip)'});
+ for(const [rowIndex,b] of raw.entries()){if(b.bottom<c.top||b.top>c.bottom||b.right<c.left||b.left>c.right)continue;
+ const image=node('image',{x:b.left-b.height*.25-(rowIndex===0?30:0),y:b.top,width:b.width+b.height*.5+(rowIndex===0?30:0),height:b.height,'clip-path':'url(#connections-reader-clip)'});
  void savedHighlightArt([b.width/b.height],colour()).then(images=>{if(image.isConnected)image.setAttribute('href',images[0]);}).catch(console.warn);
  const ink=node('foreignObject',{x:b.left,y:b.top,width:b.width,height:b.height,'clip-path':'url(#connections-reader-clip)'});const host=document.createElement('div');host.style.cssText='position:relative;width:100%;height:100%;pointer-events:none';host.append(textInk(pane,b));ink.append(host);
  }
- const b=raw[0];return b?{x:Math.max(c.left+2,Math.min(c.right-2,b.left+b.width/2)),y:Math.max(c.top+2,Math.min(c.bottom-2,b.top+b.height/2))}:undefined;};
- const m=paint(mother);for(const list of kids.values())for(const kid of list){const k=paint(kid);if(!k)continue;const from=m??{x:k.x,y:Math.max(0,k.y-35)};const line=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:colour(),'stroke-width':1.5,'clip-path':'url(#connections-reader-clip)'});const hit=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:'transparent','stroke-width':14,'clip-path':'url(#connections-reader-clip)',tabindex:0,role:'button','aria-label':'Travel between source and linked text'});hit.classList.add('trace-hit');const go=()=>{line.animate([{strokeWidth:'1.5'},{strokeWidth:'4'},{strokeWidth:'1.5'}],{duration:350});visiting=!visiting;void visit(visiting?kid:mother!);};hit.addEventListener('click',go);hit.addEventListener('keydown',e=>{if((e as KeyboardEvent).key==='Enter')go();});}
+ const b=raw[0];
+ if(b&&b.bottom>c.top&&b.top<c.bottom){
+  const frog=node('image',{x:b.left-36,y:b.top+b.height/2-24,width:48,height:48,'clip-path':'url(#connections-reader-clip)'});
+  frog.setAttribute('transform',`rotate(-90 ${b.left-12} ${b.top+b.height/2})`);applyEatyImage(frog as SVGImageElement);
+ }
+ return b?{x:Math.max(c.left+2,Math.min(c.right-2,b.left+b.width/2)),y:Math.max(c.top+2,Math.min(c.bottom-2,b.top+b.height/2))}:undefined;};
+ const m=paint(mother);for(const list of kids.values())for(const kid of list){const k=paint(kid);if(!k)continue;const from=m??{x:k.x,y:Math.max(0,k.y-35)};const line=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:colour(),'stroke-width':1.5,'clip-path':'url(#connections-reader-clip)'});const hit=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:'transparent','stroke-width':14,'clip-path':'url(#connections-reader-clip)',tabindex:0,role:'button','aria-label':'Travel between source and linked text'});hit.classList.add('trace-hit');const go=()=>{playSound('pen');line.animate([{strokeWidth:'1.5'},{strokeWidth:'4'},{strokeWidth:'1.5'}],{duration:350});visiting=!visiting;void visit(visiting?kid:mother!);};hit.addEventListener('click',go);hit.addEventListener('keydown',e=>{if(['Enter',' '].includes((e as KeyboardEvent).key)){e.preventDefault();if(!(e as KeyboardEvent).repeat)go();}});}
  }
  function schedule(){if(!frame)frame=requestAnimationFrame(draw);}
  function reset(){serial++;mother=undefined;kids.clear();active=false;notice.hidden=true;overlay.replaceChildren();badges();document.body.classList.remove('connections-active');}

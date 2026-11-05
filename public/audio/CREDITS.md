@@ -52,3 +52,6 @@ Original preview MP3s, unchanged. Playback volume is reduced in the application.
 - `ouch-vocal.mp3`: Ouch by Lottjonn / freesound_community, Pixabay Content License. https://pixabay.com/sound-effects/people-ouch-37243/ — excerpt 0.94–1.61 seconds, short edge fades, preceding sound omitted.
 
 - `cartoon-spin.mp3`: Cartoon spin by hermengarde / freesound_community, Pixabay Content License. https://pixabay.com/sound-effects/film-special-effects-cartoon-spin-7120/ — played when small Eaty emerges from the PI balloon.
+
+- `chapter-unlock.mp3`: Small Padlock Opening by Rudmer_Rotteveel, CC0. https://freesound.org/people/Rudmer_Rotteveel/sounds/536414/
+- `checker-correct.mp3` and `checker-wrong.mp3`: Correct answer (feedback-confirm-65) and Wrong answer (feedback-buzzer-16), SFXMint Learning App pack, CC0. https://sfxmint.com/sets/learning
