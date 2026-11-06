@@ -2,13 +2,37 @@
 const files = { close: 'close-mouse-click.mp3', bubble: 'soap-bubble.mp3', hover: 'message-pop.mp3', squishy: 'squishy-click-v2.m4a', lick: 'comic-lick.mp3', retract: 'tape-retract.mp3', paper: 'paper-flutter-fast.mp3', windowUp: 'window-up.mp3', windowDown: 'window-down.mp3', pen: 'pen-click.mp3', scroll: 'scroll-tick.mp3', balloonPop: 'balloon-pop.mp3', wind: 'pi-wind.mp3', ouch: 'ouch-vocal.mp3', spin: 'cartoon-spin.mp3', chapterUnlock: 'chapter-unlock.mp3', correct: 'checker-correct.mp3', wrong: 'checker-wrong.mp3', chew: 'cereal-chewing.mp3', win: 'winning-chimes.mp3' } as const;
 type Sound = keyof typeof files;
 let context: AudioContext | undefined;
+let mounted = false;
+
+function resumeAudio(audio: AudioContext) {
+  // Safari can report interrupted after tab switches or an audio interruption.
+  return audio.state !== 'running' && audio.state !== 'closed'
+    ? audio.resume() : Promise.resolve();
+}
 const buffers = new Map<Sound, Promise<AudioBuffer>>();
 const playing = new Map<Sound, AudioBufferSourceNode>();
 
 export function mountSounds() {
+  if (mounted) return;
+  mounted = true;
+  // Retry on a real gesture if creating the context at page load was blocked.
+  const unlock = () => {
+    if (!context) initialize();
+    if (context) void resumeAudio(context).catch(() => {});
+  };
+  for (const event of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
+    document.addEventListener(event, unlock, { capture: true, passive: true });
+  }
+  initialize();
+}
+
+function initialize() {
   if (context) return;
   try {
-    context = new AudioContext();
+    const AudioConstructor = window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioConstructor) return;
+    context = new AudioConstructor();
     const audio = context;
     for (const name of Object.keys(files) as Sound[]) {
       const buffer = fetch(import.meta.env.BASE_URL + 'audio/' + files[name])
@@ -32,9 +56,6 @@ export function mountSounds() {
       buffers.set(name, buffer);
       void buffer.catch(() => {}); // Audio must never interrupt reading.
     }
-    const unlock = () => { if (audio.state === 'suspended') void audio.resume().catch(() => {}); };
-    document.addEventListener('pointerdown', unlock, { capture: true });
-    document.addEventListener('keydown', unlock, { capture: true });
   } catch { /* Reading still works when audio is unavailable. */ }
 }
 
@@ -44,7 +65,7 @@ export function playSound(name: Sound, durationSeconds?: number) {
   const requested = performance.now();
   void (async () => {
     try {
-      if (audio.state === 'suspended') await audio.resume();
+      await resumeAudio(audio);
       const decoded = await buffer;
       // Do not play delayed effects after a slow download or background-tab resume.
       if (audio.state !== 'running' || document.hidden || performance.now() - requested > 400) return;
@@ -98,7 +119,7 @@ async function resumePiWind(){
  const audio=context,buffer=buffers.get('wind'),token=++windGeneration;
  if(!audio||!buffer||document.hidden)return;
  try{
-  if(audio.state==='suspended')await audio.resume();
+  await resumeAudio(audio);
   const decoded=await buffer;
   if(!windWanted||token!==windGeneration||document.hidden||audio.state!=='running')return;
   const source=audio.createBufferSource(),gain=audio.createGain();
