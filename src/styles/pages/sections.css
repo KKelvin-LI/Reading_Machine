@@ -13,7 +13,8 @@
 .reader.highlights-open .section-tabs{visibility:hidden}
 
 /* Independent comparison panes; one renderer queue serves only visible pages. */
-.reader.design-frame .page-stage{padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden;scrollbar-gutter:auto}
+/* Contain native scrollbars and pane controls below the section selectors. */
+.reader.design-frame .page-stage{padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden;scrollbar-gutter:auto;z-index:0;isolation:isolate}
 .reader.design-frame #page-mount{display:grid;align-items:stretch;justify-content:stretch;height:100%;width:100%;min-height:0;position:relative;gap:0;overflow:hidden}
 .section-reading-pane{position:relative;min-width:0;min-height:0;overflow:auto;height:100%;box-sizing:border-box;padding:var(--reader-ls);border:.065em solid #151410;border-radius:1em;scrollbar-color:var(--active-section-colour) white;scrollbar-gutter:stable;transform-origin:left center;background:white}
 .section-reading-pane::-webkit-scrollbar{width:.6em}.section-reading-pane::-webkit-scrollbar-thumb{background:var(--active-section-colour);border-radius:1em}
