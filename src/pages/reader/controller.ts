@@ -245,6 +245,8 @@ export function mountReader(root:HTMLElement){
     const token=++generation;ready=false;abort.abort();await renderJob;abort=new AbortController();
     if(disposed||token!==generation||!pdf)return;
     sectionNavigation.clearFooters();slots.forEach(release);slots=[];mount.replaceChildren();
+    // Leaving comparison mode also resets its orientation for future panes.
+    if(openSections.length===1)rotatedPanes.clear();
     const arrangement=paneLayout(openSections,rotatedPanes);
     mount.style.gridTemplateColumns=`repeat(${arrangement.columns},minmax(0,1fr))`;
     mount.style.gridTemplateRows=`repeat(${arrangement.rows},minmax(0,1fr))`;
