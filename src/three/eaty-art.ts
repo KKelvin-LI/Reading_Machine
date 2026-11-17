@@ -38,5 +38,4 @@ export function applyEatyImage(image:HTMLImageElement|SVGImageElement,view:'top'
 }
 export function mountEatyBrand(){
  document.querySelectorAll<HTMLImageElement>('img[data-eaty-front]').forEach(image=>applyEatyImage(image,'front'));
- void eatyFrontView().then(url=>{const icon=document.querySelector<HTMLLinkElement>('link[rel="icon"]');if(icon){icon.type='image/png';icon.href=url;}}).catch(()=>{});
 }
