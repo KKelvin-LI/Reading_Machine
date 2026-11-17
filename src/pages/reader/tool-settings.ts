@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {cushionMaterial} from '../../three/cushion';
 import '../../styles/pages/tool-settings.css';
 function mountPanel(root:HTMLElement,stack:HTMLElement,toolName:string){
- if(toolName==='Checker'||toolName==='Connections')return mountButtonToolSettings(root,stack,toolName);
+ if(toolName==='Checker'||toolName==='Trace')return mountButtonToolSettings(root,stack,toolName);
  const panel=document.createElement('section');panel.className='tool-settings';panel.hidden=true;panel.dataset.nativeControl='';panel.setAttribute('aria-label',`${toolName} settings`);panel.dataset.tool=toolName;panel.tabIndex=0;
  panel.innerHTML=`<h2></h2><div class="tool-palette" role="group" aria-label="Colour"></div><div class="tool-opacity-row"><input class="tool-opacity" aria-label="Opacity" type="range" min="1" max="100" value="100"><input class="tool-percent" aria-label="Opacity percentage" type="number" min="1" max="100" value="100"><span>%</span></div><input class="tool-stroke" aria-label="Stroke width" type="range" min="0.1" max="1.5" step="0.01" value="1">`;
  stack.append(panel);
@@ -43,7 +43,7 @@ function mountPanel(root:HTMLElement,stack:HTMLElement,toolName:string){
 
 export function mountToolSettings(root:HTMLElement){
  const stack=document.createElement('div');stack.className='tool-settings-stack';root.querySelector('.reading-window')!.append(stack);
- const panels=['Sketch Pad','Paced Reading','Checker','Connections'].map(tool=>mountPanel(root,stack,tool));
+ const panels=['Sketch Pad','Paced Reading','Checker','Trace'].map(tool=>mountPanel(root,stack,tool));
  let current:string|null=null;let expandy:Animation|undefined;
  function activate(tool:string|null){
   const target=tool?stack.querySelector<HTMLElement>(`[data-tool="${tool}"]`):null;

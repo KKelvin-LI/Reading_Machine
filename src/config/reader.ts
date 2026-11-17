@@ -5,7 +5,7 @@ export const readerSettings = {
   // Four quarters; the fifth colour belongs to the final checkpoint.
   colours:colourCycle,
   checkpoints: [25, 50, 75, 100],
-  tools: ['Sketch Pad', 'Paced Reading', 'Checker', 'Connections'],
+  tools: ['Sketch Pad', 'Paced Reading', 'Checker', 'Trace'],
   toolThresholds: [0, 25, 50, 75],
   saveDelayMs: 400,
 };
