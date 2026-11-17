@@ -30,7 +30,12 @@ export function mountComments(root:HTMLElement){
    const width=Math.min(base.width*.85,Math.max(180,entry.width*base.width)),height=Math.min(base.height*.85,Math.max(110,entry.height*base.height));
    const x=entry.x!==undefined?entry.x*base.width:(last?last.right-base.left-width:base.width-width-20);
    const y=entry.y!==undefined?entry.y*base.height:(last?last.bottom-base.top+12:20);
-   Object.assign(view.box.style,{left:`${Math.max(0,Math.min(base.width-width,x))}px`,top:`${Math.max(0,Math.min(base.height-height,y))}px`,width:`${width}px`,height:`${height}px`});
+   const left=Math.max(0,Math.min(base.width-width,x)),top=Math.max(0,Math.min(base.height-height,y));
+   // Anchor beside the text only on first opening; scrolling moves the marker, not the box.
+   if(entry.open&&visible&&base.width>0&&base.height>0&&(entry.x===undefined||entry.y===undefined)){
+    entry.x=left/base.width;entry.y=top/base.height;persist(entry);
+   }
+   Object.assign(view.box.style,{left:`${left}px`,top:`${top}px`,width:`${width}px`,height:`${height}px`});
   }
  }
 
