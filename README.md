@@ -4,20 +4,15 @@ An interactive reading prototype featuring Eaty, highlighting and comments, read
 
 ## Try the website
 
-**Live website:** [https://kkelvin-li.github.io/Reading_Machine/](https://kkelvin-li.github.io/Reading_Machine/)
+[Open the published Reading Machine](https://kkelvin-li.github.io/Reading_Machine/).
 
-This prototype is designed specifically for **Draft 1.pdf**. Please use the supplied PDF; other documents are not supported reliably by the current section layout.
+Start the local server as described below, then [open the final thesis demo](http://127.0.0.1:5190/?prototype=final) in a desktop browser. You can also select **Open Demo PDF** on the home screen. To read your own file, click Eaty or drag the PDF onto Eaty.
 
-1. [Download Draft 1.pdf](https://kkelvin-li.github.io/Reading_Machine/prototype/draft-1.pdf). If your browser opens the PDF, use its download/save button.
-2. Open [The Reading Machine](https://kkelvin-li.github.io/Reading_Machine/).
-3. Click Eaty to choose the downloaded PDF, or drag the PDF onto Eaty.
-4. Read through the sections to unlock the tools. At 100%, Eaty plays the finishing animation and the circular replay button becomes available.
+The final thesis has 14 reading sections, numbered 0 (Abstract) through 13 (Reference). The reader identifies the numbered chapter headings in the PDF and weights each progress-bar segment by the page area its section occupies. Once unlocked, Checker offers questions for each of the fourteen sections. Reading progress begins at Abstract and reaches 100% at the end of Reference, when Eaty plays the finishing animation and the replay button becomes available.
 
-**PDF location in this repository:** [`public/prototype/draft-1.pdf`](public/prototype/draft-1.pdf)
+The [bundled final thesis](public/prototype/final-draft-2.pdf) is the compressed edition. You can also upload the full-quality final PDF. The [original Draft 1 demo](http://127.0.0.1:5190/?prototype=draft-1) retains its seven sections. Other PDFs without the thesis headings open as a single document.
 
-[Alternative direct PDF download](https://github.com/KKelvin-LI/Reading_Machine/raw/refs/heads/main/public/prototype/draft-1.pdf)
-
-Use a desktop browser with WebGL enabled for the full mouse and 3D interactions. Reading history and annotations are stored locally in that browser, not synced between devices.
+WebGL enables the animated 3D controls. When 3D graphics are unavailable, the reader, annotations, and game use native browser controls and 2D artwork. Reading history and annotations are saved in the current browser.
 
 ## Run locally
 
@@ -28,7 +23,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open the local URL shown by Vite (normally http://127.0.0.1:5191/).
+On Windows, run `pnpm.cmd install --frozen-lockfile` in the project folder for the initial setup. After that, double-click `START-LOCAL.cmd` to open the site in your default browser. The local address is normally http://127.0.0.1:5190/.
 
 ```sh
 pnpm build
@@ -43,7 +38,7 @@ The build copies PDF.js fonts, character maps, and decoders into the website. Gi
 - `src/three/` — Eaty and rendered interaction models
 - `src/styles/` — layout, palette, and typography
 - `public/models/` — 3D models and rendered assets
-- `public/prototype/draft-1.pdf` — supported demonstration PDF
+- `public/prototype/` — final thesis and original Draft 1 demonstration PDFs
 - `GUIDE.md` — development guide
 
 The large alphabet model is stored losslessly in `model-assets/` parts. Installation and production builds automatically reassemble it and verify its SHA-256 checksum.

@@ -1,12 +1,10 @@
 import {playSound} from '../../ui/sounds';
 import {eatyActions} from '../../ui/eaty-actions';
 import {applyEatyImage} from '../../three/eaty-art';
-import {textInk} from '../../interactions/text-ink';
 import {savedHighlightArt} from '../../three/saved-highlight-art';
-import {commentArrowArt} from '../../three/comment-arrow';
-import {historyArt,pressCross} from '../../three/history-art';
 import {selectionLines} from '../../interactions/highlight';
 export type MarkRect={page:number;x:number;y:number;w:number;h:number};
+export type MarkInSlot=(slot:HTMLElement,rect:MarkRect)=>boolean;
 export function captureMarks(stage:HTMLElement,range:Range):MarkRect[]{
  const pane=range.startContainer.parentElement?.closest('.section-reading-pane');
  const slots=(pane??stage).querySelectorAll<HTMLElement>('.pdf-slot');
@@ -14,12 +12,12 @@ export function captureMarks(stage:HTMLElement,range:Range):MarkRect[]{
  for(const r of selectionLines(range))for(const slot of slots){const b=slot.getBoundingClientRect();const left=Math.max(b.left,r.left),top=Math.max(b.top,r.top),right=Math.min(b.right,r.left+r.width),bottom=Math.min(b.bottom,r.top+r.height);if(right>left&&bottom>top)out.push({page:Number(slot.dataset.page),x:(left-b.left)/b.width,y:(top-b.top)/b.height,w:(right-left)/b.width,h:(bottom-top)/b.height});}
  return out;
 }
-export function mountSavedMarks(stage:HTMLElement,getEntries:()=>{rects?:MarkRect[];text?:string;page?:number;endPage?:number;id?:string}[],colour='#bae4ee',onDelete?:(id:string)=>Promise<void>){
+export function mountSavedMarks(stage:HTMLElement,getEntries:()=>{rects?:MarkRect[];text?:string;page?:number;endPage?:number;id?:string}[],colour='#bae4ee',onDelete?:(id:string)=>Promise<void>,markInSlot:MarkInSlot=()=>true){
  let frame=0;const layerClass=colour==='#bae4ee'?'saved-highlight-marks':'saved-comment-marks';
  function draw(){frame=0;stage.querySelectorAll(`[data-eaty-mark="${layerClass}"]`).forEach(node=>node.remove());
   for(const entry of getEntries())if(!entry.rects?.length&&entry.text){
    const nodes:Text[]=[];
-   for(const slot of stage.querySelectorAll<HTMLElement>('.pdf-slot')){const page=Number(slot.dataset.page);if(page<(entry.page??1)||page>(entry.endPage??entry.page??1))continue;for(const span of slot.querySelectorAll('.textLayer span')){const walker=document.createTreeWalker(span,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))nodes.push(node as Text);}}
+   for(const slot of stage.querySelectorAll<HTMLElement>('.pdf-slot')){const page=Number(slot.dataset.page);if(page<(entry.page??1)||page>(entry.endPage??entry.page??1))continue;for(const span of slot.querySelectorAll('.textLayer span:not([aria-hidden="true"])')){const walker=document.createTreeWalker(span,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))nodes.push(node as Text);}}
    let flat='';const positions:{node:Text;offset:number}[]=[];
    for(const node of nodes)for(let i=0;i<node.length;i++){const c=node.data[i];if(/\s/.test(c)){if(flat.endsWith(' '))continue;flat+=' ';}else flat+=c;positions.push({node,offset:i});}
    const query=entry.text.replace(/\s+/g,' ').trim(),start=flat.indexOf(query);
@@ -30,19 +28,20 @@ export function mountSavedMarks(stage:HTMLElement,getEntries:()=>{rects?:MarkRec
    let layer=slot.querySelector<HTMLElement>(`:scope > .${layerClass}`);
    if(!layer){layer=document.createElement('div');layer.className=layerClass;slot.append(layer);}
    layer.replaceChildren();
+   const slotBox=slot.getBoundingClientRect();
+   if(!slotBox.width||!slotBox.height)continue;
+   const pageNumber=Number(slot.dataset.page);
    for(const entry of getEntries()){
-    const rects=entry.rects;if(!rects?.length)continue;
-    const slotBox=slot.getBoundingClientRect();
+    const rects=entry.rects;if(!rects?.some(r=>r.page===pageNumber))continue;
     const widths=rects.map(r=>r.w*slotBox.width/(r.h*slotBox.height));
     const art=savedHighlightArt(widths,colour);
-    rects.forEach((r,i)=>{if(r.page!==Number(slot.dataset.page))return;
+    rects.forEach((r,i)=>{if(r.page!==pageNumber||!markInSlot(slot,r))return;
      const mark=document.createElement('span');mark.className='persistent-foam-mark';if(entry.id)mark.dataset.annotationId=entry.id;Object.assign(mark.style,{left:`${r.x*100}%`,top:`${r.y*100}%`,width:`${r.w*100}%`,height:`${r.h*100}%`});layer!.append(mark);
-     const image=document.createElement('img');image.alt='';image.className='persistent-foam-surface';image.style.left=i===0?`calc(${-25/widths[i]}% - 30px)`:`${-25/widths[i]}%`;image.style.width=i===0?`calc(${100+50/widths[i]}% + 30px)`:`${100+50/widths[i]}%`;mark.append(image);
+     const image=document.createElement('img');image.alt='';image.className='persistent-foam-surface';image.style.left=i===0?`calc(${-25/widths[i]}% - 1.875rem)`:`${-25/widths[i]}%`;image.style.width=i===0?`calc(${100+50/widths[i]}% + 1.875rem)`:`${100+50/widths[i]}%`;mark.append(image);
      void art.then(images=>{if(mark.isConnected)image.src=images[i];}).catch(console.warn);
-     const ink=textInk(slot,{left:slotBox.left+r.x*slotBox.width,top:slotBox.top+r.y*slotBox.height,width:r.w*slotBox.width,height:r.h*slotBox.height});mark.append(ink);
      if(i===0&&onDelete&&entry.id){const control=document.createElement('button');control.type='button';control.className='highlight-delete-tip';control.dataset.annotationEaty=entry.id;control.dataset.nativeControl='';control.setAttribute('aria-label','Eaty: double-click to delete saved highlight');const arrow=document.createElement('img');arrow.alt='';control.append(arrow);
      const pane=slot.closest<HTMLElement>('.section-reading-pane');
-     if(pane){const b=pane.getBoundingClientRect();control.dataset.eatyMark=layerClass;Object.assign(control.style,{left:`${slotBox.left+r.x*slotBox.width-b.left+pane.scrollLeft-36}px`,right:'auto',top:`${slotBox.top+(r.y+r.h/2)*slotBox.height-b.top+pane.scrollTop}px`,zIndex:'6'});pane.append(control);}else mark.append(control);
+     if(pane){const b=pane.getBoundingClientRect();control.dataset.eatyMark=layerClass;Object.assign(control.style,{left:`calc(${slotBox.left+r.x*slotBox.width-b.left+pane.scrollLeft}px - 2.25rem)`,right:'auto',top:`${slotBox.top+(r.y+r.h/2)*slotBox.height-b.top+pane.scrollTop}px`,zIndex:'6'});pane.append(control);}else mark.append(control);
      applyEatyImage(arrow);eatyActions(control,()=>onDelete(entry.id!));}
 
     });

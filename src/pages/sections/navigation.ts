@@ -16,7 +16,7 @@ export function mountSectionNavigation(root:HTMLElement,go:(index:number,replace
   const section=sections[index],el=document.createElement('button');el.type='button';el.className='section-button';el.dataset.nativeControl='';el.dataset.traceSection=String(index);parent.append(el);
   if(!section){el.disabled=true;el.classList.add('section-locked');el.setAttribute('aria-label','Previous section unavailable');el.innerHTML='<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M8 17V11a8 8 0 0 1 16 0v6" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="3" y="16" width="26" height="23" rx="5" fill="currentColor"/><circle cx="16" cy="25" r="3" fill="white"/><path d="M16 26v6" stroke="white" stroke-width="3"/></svg>';return;}
 
-  if(kind==='choice'&&index>unlocked){el.disabled=true;el.classList.add('section-locked');el.setAttribute('aria-label',`Section ${section.index} locked`);el.innerHTML='<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M8 17V11a8 8 0 0 1 16 0v6" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="3" y="16" width="26" height="23" rx="5" fill="currentColor"/><circle cx="16" cy="25" r="3" fill="white"/><path d="M16 26v6" stroke="white" stroke-width="3"/></svg>';return;}
+  if(kind==='choice'&&index>unlocked){el.disabled=true;el.classList.add('section-locked');el.title=`Section ${section.index}: ${section.title} (locked)`;el.setAttribute('aria-label',el.title);el.innerHTML='<svg viewBox="0 0 32 40" aria-hidden="true"><path d="M8 17V11a8 8 0 0 1 16 0v6" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="3" y="16" width="26" height="23" rx="5" fill="currentColor"/><circle cx="16" cy="25" r="3" fill="white"/><path d="M16 26v6" stroke="white" stroke-width="3"/></svg>';return;}
   const colourIndex=kind==='next'?index-1:index;
   const colour=cfg.colours[colourIndex%cfg.colours.length],letterColour=cfg.textColours[colourIndex%cfg.textColours.length];
   el.style.setProperty('--section-colour',colour);el.style.setProperty('--section-text-colour',letterColour);
@@ -57,8 +57,11 @@ export function mountSectionNavigation(root:HTMLElement,go:(index:number,replace
     openMenus.set(wrap,close);
     sections.forEach((_,choice)=>button(menu,choice,'choice',choice===index&&chosen.includes(index),async target=>{
      if(target===index&&chosen.includes(index))return;
-     const selection=slotIndices.flatMap((value,i)=>i===slot?[target]:chosen.includes(value)?[value]:[]);
+     const visible=new Set(chosen);visible.delete(index);visible.add(target);
+     const previousSlot=slotIndices.indexOf(target);
+     if(previousSlot!==-1)slotIndices[previousSlot]=index;
      slotIndices[slot]=target;
+     const selection=slotIndices.filter(value=>visible.has(value));
      await go(target,index,selection);
     }));
     owned=disposers.slice(disposeFrom);
@@ -72,5 +75,27 @@ export function mountSectionNavigation(root:HTMLElement,go:(index:number,replace
  // here also invalidated still-visible Next Section buttons and churned GL contexts.
  function clearFooters(){footerDisposers.forEach(fn=>fn());footerDisposers=[];}
 
- return {clearFooters,footer(parent:HTMLElement,index:number,action:(index:number)=>Promise<void>){const wrap=document.createElement('div');wrap.className='section-next-footer';parent.append(wrap);button(wrap,index,'next',false,action);},set(value:ReadingSection[],index:number,selection=[index],limit=index){unlocked=limit;const old=Array.from(host.children).map(e=>e.getBoundingClientRect());if(sections!==value||active!==index)slotIndices=[index-2,index-1,index];sections=value;active=index;chosen=selection;render();if(!matchMedia("(prefers-reduced-motion: reduce)").matches)Array.from(host.children).forEach((e,i)=>{const b=e.getBoundingClientRect(),a=old[i];if(a&&b.width)e.animate([{transform:`translateX(${a.left-b.left}px) scaleX(${a.width/b.width})`},{transform:"none"}],{duration:cfg.transitionMs,easing:"cubic-bezier(.22,.7,.2,1)"});});},reset(){void closeAll(true);slotIndices=[-2,-1,0];clearFooters();serial++;disposers.forEach(fn=>fn());disposers=[];host.replaceChildren();sections=[];}};
+ function set(value:ReadingSection[],index:number,selection=[index],limit=index,fromPane?:number){
+   const old=Array.from(host.children).map(e=>e.getBoundingClientRect());
+   if(fromPane!==undefined&&selection.length>1&&sections===value){
+     // A comparison keeps its panel order when a footer advances one of its sections.
+     const source=slotIndices.indexOf(fromPane),destination=slotIndices.indexOf(index);
+     if(source>=0&&!chosen.includes(index)){
+       if(destination>=0)slotIndices[destination]=fromPane;
+       slotIndices[source]=index;
+     }
+   }else if(sections!==value||active!==index||fromPane!==undefined){
+     const end=Math.min(limit,Math.max(2,index));
+     slotIndices=[end-2,end-1,end];
+   }
+   for(const visible of selection){
+     if(!slotIndices.includes(visible)){
+       const available=slotIndices.findIndex(slot=>!selection.includes(slot));
+       if(available>=0)slotIndices[available]=visible;
+     }
+   }
+   sections=value;active=index;chosen=selection;unlocked=limit;render();
+   if(!matchMedia("(prefers-reduced-motion: reduce)").matches)Array.from(host.children).forEach((e,i)=>{const b=e.getBoundingClientRect(),a=old[i];if(a&&b.width)e.animate([{transform:`translateX(${a.left-b.left}px) scaleX(${a.width/b.width})`},{transform:"none"}],{duration:cfg.transitionMs,easing:"cubic-bezier(.22,.7,.2,1)"});});
+ }
+ return {clearFooters,footer(parent:HTMLElement,index:number,action:(index:number)=>Promise<void>){const wrap=document.createElement('div');wrap.className='section-next-footer';parent.append(wrap);button(wrap,index,'next',false,action);},set,reset(){void closeAll(true);slotIndices=[-2,-1,0];clearFooters();serial++;disposers.forEach(fn=>fn());disposers=[];host.replaceChildren();sections=[];}};
 }

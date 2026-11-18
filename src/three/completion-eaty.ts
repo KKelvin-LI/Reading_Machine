@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import mouthGrid from './completion-mouth-depths.json';
+import { mouthSurface } from './mouth-surface';
 /** Use Home's intact face, opening lip ring, and recessed mouth bowl. */
 export async function createCompletionEaty(host:HTMLElement){
  const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;host.append(renderer.domElement);
@@ -8,19 +10,19 @@ export async function createCompletionEaty(host:HTMLElement){
  const asset=await new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'models/home/frog-completion.glb');const frog=new THREE.Group();scene.add(frog);asset.scene.updateMatrixWorld(true);
  const foam=document.createElement('canvas');foam.width=foam.height=128;const ctx=foam.getContext('2d')!;const pixels=ctx.createImageData(128,128);for(let i=0;i<pixels.data.length;i+=4){const n=100+Math.random()*90;pixels.data.set([n,n,n,255],i);}ctx.putImageData(pixels,0,0);const bump=new THREE.CanvasTexture(foam);bump.wrapS=bump.wrapT=THREE.RepeatWrapping;bump.repeat.set(8,8);
  // Cut the opening in the surface shader instead of tearing connected triangles.
- const opening={value:0},mouthPose={value:0};let oldTongue:THREE.Mesh|undefined,oldLips:THREE.Mesh|undefined,face:THREE.Mesh|undefined;
+ const opening={value:0},mouthPose={value:0};let oldTongue:THREE.Mesh|undefined,oldLips:THREE.Mesh|undefined;
  asset.scene.traverse(o=>{if(!(o instanceof THREE.Mesh)||/studio[ _]floor|^cube$/i.test(o.name))return;
   const mesh=new THREE.Mesh(o.geometry.clone().applyMatrix4(o.matrixWorld),(o.material as THREE.MeshStandardMaterial).clone());mesh.name=o.name;
   const mat=mesh.material as THREE.MeshStandardMaterial;
   if(/rigid[ _]head[ _]skin/i.test(o.name)){
-   face=mesh;mat.color.set('#fcf068');mat.roughness=.62;mat.bumpMap=bump;mat.bumpScale=.018;
+   mat.color.set('#fcf068');mat.roughness=.62;mat.bumpMap=bump;mat.bumpScale=.018;
    mat.onBeforeCompile=shader=>{
     shader.uniforms.mouthOpen=opening;shader.uniforms.mouthPose=mouthPose;
     shader.vertexShader='varying vec3 mouthPosition; uniform float mouthOpen; uniform float mouthPose;\n'+shader.vertexShader;
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
      mouthPosition=position;
      float centreY=1.04+mouthPose*0.20;
-     float seam=centreY+0.23*(1.0-mouthPose)*pow(position.x/1.62,2.0);
+     float seam=centreY+0.23*(1.0-mouthPose)*pow(abs(position.x)/1.62,2.0);
      float radius=length(vec2(position.x/1.57,(position.y-seam)/0.452));
      float blend=mouthPose*(1.0-smoothstep(1.0,1.65,radius))*smoothstep(0.0,0.25,position.z);
      transformed.z=mix(transformed.z,0.84+0.7*(position.y-centreY),blend);
@@ -28,7 +30,7 @@ export async function createCompletionEaty(host:HTMLElement){
     shader.fragmentShader='varying vec3 mouthPosition; uniform float mouthOpen; uniform float mouthPose;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
      float mx=mouthPosition.x/1.57;
-     float seam=1.04+mouthPose*0.20+0.23*(1.0-mouthPose)*pow(mouthPosition.x/1.62,2.0);
+     float seam=1.04+mouthPose*0.20+0.23*(1.0-mouthPose)*pow(abs(mouthPosition.x)/1.62,2.0);
      float halfHeight=0.052+mouthOpen*0.40;
      float my=(mouthPosition.y-seam)/halfHeight;
      if(mouthOpen>0.001 && mouthPosition.z>0.0 && mx*mx+my*my<1.0) discard;`);
@@ -38,21 +40,7 @@ export async function createCompletionEaty(host:HTMLElement){
   if(/tongue/i.test(o.name)){oldTongue=mesh;mat.color.set('#f7c9de');mat.roughness=.18;}
   frog.add(mesh);
  });
- // Sample the face so both lip corners sit on the actual skin surface.
- frog.updateMatrixWorld(true);
- const ray=new THREE.Raycaster(),sampleSurface=(x:number,y:number)=>{
-  if(!face)return .9;
-  const origin=face.localToWorld(new THREE.Vector3(x,y,5));ray.set(origin,new THREE.Vector3(0,0,-1));
-  const hit=ray.intersectObject(face,false)[0];return hit?face.worldToLocal(hit.point.clone()).z:.9;
- };
- // Cache the skin depth once; animation frames only interpolate this small grid.
- const gridX=16,gridY=12,depths:number[]=[];
- for(let j=0;j<=gridY;j++)for(let i=0;i<=gridX;i++)depths.push(sampleSurface(-1.65+3.3*i/gridX,.4+1.6*j/gridY));
- const surface=(x:number,y:number)=>{
-  const u=THREE.MathUtils.clamp((x+1.65)/3.3*gridX,0,gridX-.00001),v=THREE.MathUtils.clamp((y-.4)/1.6*gridY,0,gridY-.00001);
-  const i=Math.floor(u),j=Math.floor(v),k=j*(gridX+1)+i;
-  return THREE.MathUtils.lerp(THREE.MathUtils.lerp(depths[k],depths[k+1],u-i),THREE.MathUtils.lerp(depths[k+gridX+1],depths[k+gridX+2],u-i),v-j);
- };
+ const surface=mouthSurface(mouthGrid);
  const restingLips=oldLips?.geometry.getAttribute('position').array.slice();
  const lip=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshStandardMaterial({color:'#e7484d',roughness:.3}));frog.add(lip);
  const mouth=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshStandardMaterial({color:'#652334',roughness:.48,side:THREE.DoubleSide}));frog.add(mouth);

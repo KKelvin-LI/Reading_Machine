@@ -1,2 +1,5 @@
 onlyBuiltDependencies:
   - esbuild
+
+patchedDependencies:
+  pdfjs-dist@5.7.284: patches/pdfjs-dist@5.7.284.patch

@@ -1,5 +1,8 @@
 import {playSound} from '../../ui/sounds';
 import {checkerQuestions, type Question} from './questions';
+import {finalCheckerQuestions} from './final-questions';
+import {draftFingerprint} from '../../config/prototype';
+import {finalThesisPlanId} from '../sections/thesis-sections';
 import {createCheckerMotion} from './motion';
 import {checkerResultArt} from './result-art';
 import {createSquishyNavigation} from '../../three/squishy-navigation';
@@ -12,7 +15,8 @@ export function mountChecker(root:HTMLElement){
  const notice=document.createElement('p');notice.className='wheel-status checker-notice';notice.hidden=true;notice.setAttribute('role','status');notice.textContent='Click a section to start Checker.';
  root.append(panel,notice);
  const motion=createCheckerMotion(panel);
- let active=false,supported=false,count=1,index=0,questions:Question[]=[],version=0;
+ let documentQuestions:Question[][]=[];
+ let active=false,count=1,index=0,questions:Question[]=[],version=0;
  let disposeButtons:(()=>void)[]=[];
  function position(){const b=stage.getBoundingClientRect();for(const el of [panel,notice]){el.style.left=`${b.left}px`;el.style.width=`${b.width}px`;}panel.style.top=`${b.top}px`;panel.style.height=`${b.height}px`;notice.style.bottom=`${Math.max(0,innerHeight-b.bottom)+16}px`;}
  new ResizeObserver(position).observe(stage);window.addEventListener('resize',position);
@@ -35,12 +39,17 @@ export function mountChecker(root:HTMLElement){
  function showQuestion(){clear();panel.dataset.busy='false';const q=questions[index];const heading=document.createElement('h2');heading.className='checker-question';heading.tabIndex=-1;heading.textContent=q.prompt;const answers=document.createElement('div');answers.className='checker-answers';q.options.forEach((option,i)=>answers.append(button(`${String.fromCharCode(65+i)}. ${option}`,i,()=>transition(()=>showResult(i)))));const footer=document.createElement('footer');footer.append(tracker());panel.append(heading,answers,footer);heading.focus({preventScroll:true});motion.enterQuestion(answers);}
  function showResult(answer:number){clear();const q=questions[index],correct=answer===q.answer;playSound(correct?'correct':'wrong');const result=document.createElement('div');result.className='checker-result';result.setAttribute('role','status');const image=document.createElement('img');image.alt=correct?'Correct':'Incorrect';image.src=checkerResultArt(correct,colourCycle[answer]);const heading=document.createElement('h2');heading.textContent=correct?'Correct':'Not quite';const explanation=document.createElement('p');explanation.textContent=`Correct answer: ${String.fromCharCode(65+q.answer)}. ${q.options[q.answer]}`;result.append(image,heading,explanation);const footer=document.createElement('footer');footer.append(tracker(),button(index===questions.length-1?'Close':'Next',answer,()=>transition(()=>{if(index===questions.length-1)finish();else{index++;showQuestion();}}),true));panel.append(result,footer);panel.dataset.busy='false';motion.enterResult(image,correct);}
  async function transition(next:()=>void){const token=version;await motion.exit();if(token===version&&active)next();}
- function start(section:number){const bank=checkerQuestions[section];if(!bank)return;questions=[bank[0],bank[2],bank[1],bank[3]].slice(0,count);index=0;notice.hidden=true;panel.hidden=false;position();showQuestion();}
+ function start(section:number){const bank=documentQuestions[section];if(!bank)return;questions=[bank[0],bank[2],bank[1],bank[3]].slice(0,count);index=0;notice.hidden=true;panel.hidden=false;position();showQuestion();}
  root.addEventListener('reader:tool-settings',event=>{const d=(event as CustomEvent).detail;if(d.tool==='Checker'&&d.questionCount)count=Math.max(1,Math.min(4,d.questionCount));});
- root.addEventListener('reader:active-tool-change',event=>{active=(event as CustomEvent).detail.tool==='Checker';document.body.classList.toggle('checker-active',active);if(!active)hide();else{position();notice.textContent=supported?'Click a section to start Checker.':'Checker questions are available for Draft 1.';notice.hidden=false;}});
+ root.addEventListener('reader:active-tool-change',event=>{active=(event as CustomEvent).detail.tool==='Checker';document.body.classList.toggle('checker-active',active);if(!active)hide();else{position();notice.textContent=documentQuestions.length?'Click a section to start Checker.':'This PDF has no Checker questions.';notice.hidden=false;}});
  root.addEventListener('reader:tool-toggle',event=>{const d=(event as CustomEvent).detail;if(d.tool==='Checker'&&!d.selected)reset();});
  // Capture only pane interaction: tool controls remain usable, text selection/menu gestures do not compete.
  for(const name of ['pointerdown','pointerup','contextmenu'] as const)root.addEventListener(name,event=>{if(active&&(event.target as Element).closest('.section-reading-pane')){event.preventDefault();event.stopImmediatePropagation();}},true);
- root.addEventListener('click',event=>{if(!active||!panel.hidden)return;const pane=(event.target as Element).closest<HTMLElement>('.section-reading-pane');if(!pane)return;event.preventDefault();event.stopImmediatePropagation();if(supported)start(Number(pane.dataset.section));},true);
- return {reset,setDocument(fingerprint:string){reset();supported=fingerprint==='0d5f305beab8478595f91b12b525e4f1';}};
+ root.addEventListener('click',event=>{if(!active||!panel.hidden)return;const pane=(event.target as Element).closest<HTMLElement>('.section-reading-pane');if(!pane)return;event.preventDefault();event.stopImmediatePropagation();start(Number(pane.dataset.section));},true);
+ return {reset,setDocument(fingerprint:string,planId?:string){
+  reset();
+  if(planId===finalThesisPlanId)documentQuestions=finalCheckerQuestions;
+  else if(fingerprint===draftFingerprint)documentQuestions=checkerQuestions;
+  else documentQuestions=[];
+ }};
 }

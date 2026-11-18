@@ -1,5 +1,5 @@
 import './stream-compat';
-import {prototypePaper} from '../config/prototype';
+import {draftFingerprint} from '../config/prototype';
 import { getDocument, GlobalWorkerOptions, TextLayer, OPS, Util, type PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
@@ -38,7 +38,7 @@ export async function renderPage(pdf: PDFDocumentProxy, pageNumber: number, scal
   canvas.setAttribute('aria-label', `PDF page ${pageNumber}`);
   wrapper.append(canvas);
   if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
-  const layered=pdf.fingerprints[0]===prototypePaper.fingerprint;
+  const layered=pdf.fingerprints[0]===draftFingerprint;
   const operators=layered?await page.getOperatorList():undefined;
   const textPaint=new Set<number>([OPS.showText,OPS.showSpacedText,OPS.nextLineShowText,OPS.nextLineSetSpacingShowText]);
   const task=page.render({ canvas, viewport, operationsFilter:operators?(index=>!textPaint.has(operators.fnArray[index])):undefined, transform: [pixelRatio, 0, 0, pixelRatio, 0, 0] });
@@ -58,16 +58,16 @@ export async function renderPage(pdf: PDFDocumentProxy, pageNumber: number, scal
   // Preserve the actual canvas font for precise per-word overlays. The selection
   // layer may use a metrically different fallback font scaled to the whole line.
   const items=content.items.filter((item):item is Extract<typeof item,{str:string}>=>'str' in item);
-  let itemIndex=0;
   const measure=document.createElement('canvas').getContext('2d')!;
   if(layered){wrapper.classList.add('pdf-layered-text');text.replaceChildren();}
-  if(layered)for(const item of items){const span=document.createElement('span');span.textContent=item.str;text.append(span);}
-  for(const span of text.querySelectorAll<HTMLElement>('span')){
-    if(!span.textContent){if(layered)itemIndex++;continue;}
-    const item=items[itemIndex];if(!item)break;
-    if(span.textContent!==item.str)continue;
+  // PDF.js keeps one textDiv per item, including empty line breaks that it
+  // never inserts into the DOM. DOM order alone loses the font pairing there.
+  for(const [itemIndex,pdfSpan] of textLayer.textDivs.entries()){
+    const item=items[itemIndex];
+    if(!item?.str)continue;
+    const span=layered?document.createElement('span'):pdfSpan;
+    if(layered){span.textContent=item.str;text.append(span);}
     span.dataset.pdfItem=String(itemIndex);
-    itemIndex++;
     if(page.commonObjs.has(item.fontName)){
       const font=page.commonObjs.get(item.fontName);
       if(font?.loadedName&&!font.missingFile)span.dataset.renderedFont=font.loadedName;

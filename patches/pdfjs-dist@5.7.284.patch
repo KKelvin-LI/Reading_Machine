@@ -1,0 +1,91 @@
+diff --git a/legacy/build/pdf.mjs b/legacy/build/pdf.mjs
+--- a/legacy/build/pdf.mjs
++++ b/legacy/build/pdf.mjs
+@@ -17379,6 +17379,37 @@
+ const LINE_JOIN_STYLES = ["miter", "round", "bevel"];
+ const NORMAL_CLIP = {};
+ const EO_CLIP = {};
++// A 2D context may accept a filter URL but draw its source unfiltered.
++const canvasMaskFilterSupport = new WeakMap();
++function supportsCanvasMaskFilters(canvasFactory, filterFactory) {
++  if (canvasMaskFilterSupport.has(filterFactory)) {
++    return canvasMaskFilterSupport.get(filterFactory);
++  }
++  const target = canvasFactory.create(2, 1);
++  let supported = false;
++  try {
++    if ("filter" in target.context) {
++      const source = canvasFactory.create(2, 1);
++      try {
++        source.context.fillStyle = "black";
++        source.context.fillRect(0, 0, 1, 1);
++        source.context.fillStyle = "white";
++        source.context.fillRect(1, 0, 1, 1);
++        target.context.filter = filterFactory.addLuminosityFilter();
++        target.context.drawImage(source.canvas, 0, 0);
++        const pixels = target.context.getImageData(0, 0, 2, 1).data;
++        supported = pixels[3] === 0 && pixels[7] === 255;
++      } finally {
++        canvasFactory.destroy(source);
++      }
++    }
++  } finally {
++    canvasFactory.destroy(target);
++  }
++  canvasMaskFilterSupport.set(filterFactory, supported);
++  return supported;
++}
++
+ class CanvasGraphics {
+   constructor(canvasCtx, commonObjs, objs, canvasFactory, filterFactory, {
+     optionalContentConfig,
+@@ -17839,6 +17870,29 @@
+       this._ensurePreparedSMask(this.current.activeSMask, this.ctx.canvas.width, this.ctx.canvas.height);
+     }
+   }
++  _drawFilteredSMask(ctx, source, subtype, transferMap) {
++    const luminosity = subtype === "Luminosity";
++    if (supportsCanvasMaskFilters(this.canvasFactory, this.filterFactory)) {
++      ctx.filter = luminosity ? this.filterFactory.addLuminosityFilter(transferMap) : this.filterFactory.addAlphaFilter(transferMap);
++      ctx.drawImage(source, 0, 0);
++      ctx.filter = "none";
++      return;
++    }
++    // The destination-in compositor reads only alpha. Convert the same sRGB
++    // luminance and transfer table as the SVG filter, in bounded strips.
++    const sourceCtx = source.getContext("2d");
++    const { width, height } = source;
++    const stripHeight = Math.max(1, Math.floor(262144 / width));
++    for (let y = 0; y < height; y += stripHeight) {
++      const strip = sourceCtx.getImageData(0, y, width, Math.min(stripHeight, height - y));
++      const pixels = strip.data;
++      for (let i = 0; i < pixels.length; i += 4) {
++        const alpha = luminosity ? Math.round(0.30 * pixels[i] + 0.59 * pixels[i + 1] + 0.11 * pixels[i + 2]) : pixels[i + 3];
++        pixels[i + 3] = transferMap ? transferMap[alpha] : alpha;
++      }
++      ctx.putImageData(strip, 0, y);
++    }
++  }
+   _prepareSMaskCanvas(smask, width, height) {
+     const {
+       canvas: maskCanvas,
+@@ -17862,17 +17916,13 @@
+       sCtx.globalCompositeOperation = "source-over";
+       preparedEntry = this.canvasFactory.create(width, height);
+       const pCtx = preparedEntry.context;
+-      pCtx.filter = subtype === "Alpha" ? this.filterFactory.addAlphaFilter(transferMap) : this.filterFactory.addLuminosityFilter(transferMap);
+-      pCtx.drawImage(srcEntry.canvas, 0, 0);
+-      pCtx.filter = "none";
++      this._drawFilteredSMask(pCtx, srcEntry.canvas, subtype, transferMap);
+       this.canvasFactory.destroy(srcEntry);
+       offsetX = offsetY = 0;
+     } else if (hasFilter) {
+       preparedEntry = this.canvasFactory.create(maskCanvas.width, maskCanvas.height);
+       const pCtx = preparedEntry.context;
+-      pCtx.filter = subtype === "Alpha" ? this.filterFactory.addAlphaFilter(transferMap) : this.filterFactory.addLuminosityFilter(transferMap);
+-      pCtx.drawImage(maskCanvas, 0, 0);
+-      pCtx.filter = "none";
++      this._drawFilteredSMask(pCtx, maskCanvas, subtype, transferMap);
+       ({
+         offsetX,
+         offsetY

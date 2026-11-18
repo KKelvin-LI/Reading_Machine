@@ -9,9 +9,9 @@
   --color-border: #dde3ec;
   --color-accent: #2457d6;
   --color-accent-soft: #eef3ff;
-  --radius: 12px;
-  --radius-small: 7px;
-  --shadow-paper: 0 3px 18px #24314912, 0 0 0 1px #24314909;
+  --radius: .75rem;
+  --radius-small: .4375rem;
+  --shadow-paper: 0 .1875rem 1.125rem #24314912, 0 0 0 .0625rem #24314909;
 }
 
-:root{--plain-outline-width:1px;--reading-box-radius:calc(.5em + var(--reader-ls,.55em))}
+:root{--plain-outline-width:.0625rem;--reading-box-radius:calc(.5em + var(--reader-ls,.55em))}

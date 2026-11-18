@@ -38,9 +38,10 @@ export function mountAbout(home:HTMLElement) {
     active=value;button!.setAttribute('aria-pressed',String(value));reel.hidden=!value;
     home.classList.toggle('about-open',value);syncPause();
   }
-  const ready=createSquishyNavigation(model,label).then(v=>{
+  let ready:Promise<typeof view>|undefined;
+  function prepare(){return ready??=createSquishyNavigation(model,label).then(v=>{
     view=v;button!.classList.add('model-ready');visual();return v;
-  }).catch(error=>{console.warn('About button unavailable',error);return undefined;});
+  }).catch(error=>{console.warn('About button unavailable',error);return undefined;});}
   async function clickAbout(){
     if(busy)return;
     const action=++actionVersion;
@@ -48,7 +49,7 @@ export function mountAbout(home:HTMLElement) {
     visual();
     const drained=closing?finishScrolling():Promise.resolve();
     try{
-      const modelView=await ready;
+      const modelView=await prepare();
       // Resolves on the animation completion, not a timeout.
       await modelView?.press();
       if(action!==actionVersion)return;
@@ -64,9 +65,10 @@ export function mountAbout(home:HTMLElement) {
       pressing=false;suppress=true;busy=false;visual();
     }
   }
-  button.addEventListener('pointerenter',()=>{hover=true;suppress=false;visual();});
+  function enter(){hover=true;suppress=false;visual();void prepare();}
+  button.addEventListener('pointerenter',enter);
   button.addEventListener('pointerleave',()=>{hover=false;visual();});
-  button.addEventListener('focus',()=>{hover=true;suppress=false;visual();});
+  button.addEventListener('focus',enter);
   button.addEventListener('blur',()=>{hover=false;visual();});
   button.addEventListener('click',()=>{void clickAbout();});
   home.addEventListener('keydown',event=>{if(event.key==='Escape'&&active&&!busy)void clickAbout();});

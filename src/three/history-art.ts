@@ -1,11 +1,18 @@
+import {flatArt,supportsWebGL2} from './webgl-support';
 import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {loader,studio} from './about-assets';
 const cache=new Map<string,Promise<string[]>>();
+function flatFrames(kind:'cross'|'line',colour:string){
+  const viewBox=kind==='line'?'0 0 100 2':'0 0 24 24';
+  const path=kind==='line'?'M1 1h98':'M4 4l16 16M20 4L4 20';
+  return [flatArt(viewBox,`<path d="${path}" fill="none" stroke="${colour}" stroke-width="${kind==='line'?2:4}" stroke-linecap="round"/>`)];
+}
 /** Bake the original Blender asset to reusable frames, avoiding one WebGL context per row. */
 export function historyArt(kind:'cross'|'line',colour:string){
   const key=kind+colour;if(cache.has(key))return cache.get(key)!;
   const work=(async()=>{
+    if(!supportsWebGL2())return flatFrames(kind,colour);
     const gltf=await loader.loadAsync(import.meta.env.BASE_URL+`models/history/${kind}.glb`);
     const s=studio(),root=gltf.scene;root.rotation.x=Math.PI/2;root.updateMatrixWorld(true);
     root.traverse(o=>{if(o instanceof THREE.Mesh){o.material=(o.material as THREE.MeshStandardMaterial).clone();(o.material as THREE.MeshStandardMaterial).color.set(colour);}});
@@ -19,11 +26,12 @@ export function historyArt(kind:'cross'|'line',colour:string){
       s.renderer.render(s.scene,s.camera);frames.push(s.renderer.domElement.toDataURL('image/png'));
     }
     root.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();(o.material as THREE.Material).dispose();}});s.dispose();return frames;
-  })();cache.set(key,work);return work;
+  })().catch(()=>flatFrames(kind,colour));cache.set(key,work);return work;
 }
 export async function pressCross(img:HTMLImageElement,colour:string,seconds:number){
   playSound('close');
+  if(!img.hasAttribute('src'))return;
   const frames=await historyArt('cross',colour);
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  if(frames.length===1||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   await new Promise<void>(resolve=>{const start=performance.now();function tick(now:number){const t=Math.min(1,(now-start)/(seconds*1000));const weight=t<.45?Math.sin(t/.45*Math.PI/2):Math.cos((t-.45)/.55*Math.PI/2)**2;img.src=frames[Math.round(weight*12)];if(t<1)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick);});
 }

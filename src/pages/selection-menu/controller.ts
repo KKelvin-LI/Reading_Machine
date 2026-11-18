@@ -1,3 +1,5 @@
+import {supportsWebGL2} from '../../three/webgl-support';
+import {viewportScale} from '../../ui/viewport-scale';
 import {playSound} from '../../ui/sounds';
 import {createPopLettering} from '../../three/pop-lettering';
 import {createElasticCursor} from './elastic-cursor';
@@ -51,10 +53,11 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
   }
   async function showOuch(rect:DOMRect){
     prepareOuch();clearOuch();const image=ouch!;
-    const width=Math.min(220,rect.width*.7,innerWidth-16),height=width*image.naturalHeight/Math.max(1,image.naturalWidth);
+    const scale=viewportScale(),inset=8*scale;
+    const width=Math.min(220*scale,rect.width*.7,innerWidth-2*inset),height=width*image.naturalHeight/Math.max(1,image.naturalWidth);
     image.style.width=`${width}px`;
-    image.style.left=`${Math.max(8,Math.min(innerWidth-width-8,rect.left+(rect.width-width)/2))}px`;
-    image.style.top=`${Math.max(8,Math.min(innerHeight-height-8,rect.top+rect.height/2-rect.width*96/400-height+height*.12))}px`;
+    image.style.left=`${Math.max(inset,Math.min(innerWidth-width-inset,rect.left+(rect.width-width)/2))}px`;
+    image.style.top=`${Math.max(inset,Math.min(innerHeight-height-inset,rect.top+rect.height/2-rect.width*96/400-height+height*.12))}px`;
     image.style.transformOrigin='bottom center';
     image.hidden=false;playSound('ouch');
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -93,14 +96,17 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     })();
   });
   function hover(index:number){if(index>=0&&index!==active&&!busy)playSound('hover');active=index;menu.querySelectorAll('[data-visual]').forEach((item,i)=>item.classList.toggle('is-hover',i===index));view?.hover(index);}
-  function prepare(){return ready??=createSelectionWheel(menu.querySelector<HTMLElement>('.wheel-model')!).then(v=>{view=v;menu.classList.add('model-ready');if(!menu.hidden)hover(active);return v;}).catch(e=>{console.warn(e);return undefined;});}
+  function prepare(){
+    if(!supportsWebGL2())return Promise.resolve(undefined);
+    return ready??=createSelectionWheel(menu.querySelector<HTMLElement>('.wheel-model')!).then(v=>{view=v;menu.classList.add('model-ready');if(!menu.hidden)hover(active);return v;}).catch(e=>{console.warn(e);return undefined;});}
   function releasePointer(){if(down&&root.hasPointerCapture(down.id))root.releasePointerCapture(down.id);}
   function close(){menu.classList.remove('is-retracting');elastic.hide();version++;releasePointer();down=undefined;drag=false;busy=false;menu.hidden=true;root.classList.remove('selection-wheel-open');view?.hide();active=-1;}
   function open(x:number,y:number,r?:Range){
     clearOuch();prepareOuch();close();range=r;if(!r?.toString().trim())selectionPrompt(true);menu.hidden=false;root.classList.add('selection-wheel-open');
-    const frame=root.getBoundingClientRect(),size=Math.min(cfg.diameter,frame.width-16,frame.height-16);menu.style.width=menu.style.height=`${size}px`;
-    menu.style.left=`${Math.max(frame.left+8,Math.min(frame.right-size-8,x-size/2))}px`;
-    menu.style.top=`${Math.max(frame.top+8,Math.min(frame.bottom-size-8,y-size/2))}px`;
+    const frame=root.getBoundingClientRect(),scale=viewportScale(),inset=8*scale;
+    const size=Math.min(cfg.diameter*scale,frame.width-2*inset,frame.height-2*inset);menu.style.width=menu.style.height=`${size}px`;
+    menu.style.left=`${Math.max(frame.left+inset,Math.min(frame.right-size-inset,x-size/2))}px`;
+    menu.style.top=`${Math.max(frame.top+inset,Math.min(frame.bottom-size-inset,y-size/2))}px`;
     elastic.show(x,y);hover(-1);void prepare();
   }
   function cancelAction(){
@@ -114,10 +120,17 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     else if(action.id==='comment'){await comment(saved);tell('Comment added — type in the yellow box.');}
     else tell(`${action.label} is not connected yet — no action was performed.`);
   }
-  async function completionFeedback(saved:Range,token:number){
-    await new Promise<void>(resolve=>root.dispatchEvent(new CustomEvent('reader:animate-selection',{
-      detail:{padding:parseFloat(getComputedStyle(root).fontSize)*.3,resolve},
-    })));
+  function animateSelection(){
+    return new Promise<void>(resolve=>{
+      const event=new CustomEvent('reader:animate-selection',{
+        cancelable:true,detail:{padding:parseFloat(getComputedStyle(root).fontSize)*.3,resolve},
+      });
+      // A ready renderer claims the animation and resolves it when finished.
+      if(root.dispatchEvent(event))resolve();
+    });
+  }
+  async function completionFeedback(token:number){
+    await animateSelection();
     if(token!==version)return false;
     root.dispatchEvent(new CustomEvent('reader:clear-selection',{detail:{committed:true}}));return true;
   }
@@ -128,7 +141,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     const token=version;clearTimeout(restTimer);
     restTimer=setTimeout(async()=>{
       if(token!==version)return;busy=true;
-      try{if(await completionFeedback(saved,token)){await perform(chosen,saved);pendingAction=-1;range=lastRange=undefined;}}
+      try{if(await completionFeedback(token)){await perform(chosen,saved);pendingAction=-1;range=lastRange=undefined;}}
       catch{tell('This action could not be completed. Please try again.');}
       finally{if(token===version)busy=false;}
     },500);
@@ -142,7 +155,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
     if(action.id==='distracted'){selectionPrompt(false);pendingAction=-1;close();document.dispatchEvent(new Event('catch:open'));return;}
     if(!saved){pendingAction=index;close();selectionPrompt(true);return;}
     try{
-      await new Promise<void>(resolve=>root.dispatchEvent(new CustomEvent('reader:animate-selection',{detail:{padding:parseFloat(getComputedStyle(root).fontSize)*.3,resolve}})));
+      await animateSelection();
       if(token!==version)return;
       await perform(index,saved);
       root.dispatchEvent(new CustomEvent('reader:clear-selection',{detail:{committed:true}}));

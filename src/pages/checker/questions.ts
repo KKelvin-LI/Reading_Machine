@@ -37,4 +37,9 @@ const rows:[string,string[],number][][]=[
 ['Sharp repeated button feedback distracts. What should change?',['Increase its intensity.','Give every action identical feedback.','Use gentler feedback for frequent controls.','Remove feedback from every control.'],2],
 ['A digital squishy convincingly imitates a stress ball. What follows?',['It provides the same anxiety reduction.','A doodling study proves better reading recall.','Visual competition with reading no longer needs testing.','Further exploration is justified, but equivalent benefits are unproven.'],3]
 ]];
-export const checkerQuestions:Question[][]=rows.map(section=>section.map(([prompt,options,answer],i)=>({prompt,options,answer,type:i<2?'Understanding':'Application and inference'})));
+export function sectionQuestions(section:[string,string[],number][]):Question[]{
+  return section.map(([prompt,options,answer],i)=>({
+    prompt,options,answer,type:i<2?'Understanding':'Application and inference',
+  }));
+}
+export const checkerQuestions:Question[][]=rows.map(sectionQuestions);

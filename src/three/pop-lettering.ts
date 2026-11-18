@@ -1,7 +1,27 @@
+import {optionalRenderer} from './webgl-support';
 import * as THREE from 'three';
 /** Rounded inflated letter strokes, rendered once with the same palette as Eaty. */
 export function createPopLettering(text='POP IT!',colour='#e7484d'){
- const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});renderer.setSize(1200,420);renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
+ const image=new Image();
+ image.alt=text;image.className='pop-lettering';
+ const prepared:Record<string,string>={'OUCH!:#e7484d':'ouch','YUM:#f89823':'yum'};
+ const asset=prepared[text+':'+colour.toLowerCase()];
+ if(asset){
+  image.src=import.meta.env.BASE_URL+'images/feedback/'+asset+'.webp';
+  return image;
+ }
+ const renderer=optionalRenderer({alpha:true,antialias:true});
+ if(!renderer){
+  const canvas=document.createElement('canvas'),paint=canvas.getContext('2d')!;
+  const font='900 150px Arial, sans-serif';
+  paint.font=font;
+  canvas.width=Math.ceil(paint.measureText(text).width)+16;canvas.height=180;
+  paint.font=font;paint.textBaseline='middle';paint.fillStyle=colour;
+  paint.fillText(text,8,canvas.height/2);
+  image.src=canvas.toDataURL();
+  return image;
+ }
+ renderer.setSize(1200,420);renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
  const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-.7,9.1,2.65,-.78,.1,100);camera.position.set(0,0,15);
  const material=new THREE.MeshPhysicalMaterial({color:colour,roughness:.22,metalness:0,clearcoat:1,clearcoatRoughness:.13});
  scene.add(new THREE.HemisphereLight(0xffffff,0x713c43,2));const light=new THREE.DirectionalLight(0xffffff,4);light.position.set(-3,5,8);scene.add(light);const rim=new THREE.DirectionalLight(0xffccd5,2);rim.position.set(5,1,4);scene.add(rim);
@@ -52,6 +72,6 @@ export function createPopLettering(text='POP IT!',colour='#e7484d'){
  camera.left=centre.x-span/2;camera.right=centre.x+span/2;camera.top=centre.y+span*420/2400;camera.bottom=centre.y-span*420/2400;camera.updateProjectionMatrix();
  if(text!=='POP IT!'){const width=bounds.max.x-bounds.min.x+.4;const height=3.43;renderer.setSize(Math.ceil(width/height*420),420);camera.left=bounds.min.x-.2;camera.right=bounds.max.x+.2;camera.top=bounds.max.y+.2;camera.bottom=camera.top-height;camera.updateProjectionMatrix();}
  renderer.render(scene,camera);
- const image=document.createElement('img');image.src=renderer.domElement.toDataURL();image.alt=text;image.className='pop-lettering';
+ image.src=renderer.domElement.toDataURL();
  group.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});material.dispose();renderer.dispose();renderer.forceContextLoss();return image;
 }

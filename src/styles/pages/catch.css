@@ -20,8 +20,8 @@ body.catch-open>.interaction-canvas,body.catch-open>.ruler-row,body.catch-open>.
 .eaty-balloon{position:absolute;padding:0;border:0;background:none;cursor:none;outline-offset:4px}
 .eaty-balloon img{display:block;width:100%;height:100%;pointer-events:none}
 .eaty-shard{position:absolute;background-size:100% 100%;pointer-events:none}
-.balloon-pin{position:fixed;left:0;top:0;width:2px;height:38px;background:linear-gradient(90deg,#666,#fff,#777);transform-origin:top;pointer-events:none;z-index:2147483647;clip-path:polygon(50% 0,100% 100%,0 100%)}
-body.catch-open .finger-cursor{margin-top:27px}
+.balloon-pin{position:fixed;left:0;top:0;width:.125rem;height:2.375rem;background:linear-gradient(90deg,#666,#fff,#777);transform-origin:top;pointer-events:none;z-index:2147483647;clip-path:polygon(50% 0,100% 100%,0 100%)}
+body.catch-open .finger-cursor{margin-top:1.6875rem}
 
 .pop-lettering{position:absolute;top:1.3%;left:50%;transform:translateX(-50%);width:min(46.656vw,492.48px);height:auto;pointer-events:none}
 
@@ -39,7 +39,7 @@ body.catch-open:has(.continuing) .finger-cursor{margin-top:0}
 .continue-lines{max-height:65vh;overflow:auto;box-sizing:border-box;padding:4px;gap:.8em}.continue-lines button{width:100%;box-sizing:border-box;overflow-wrap:anywhere;min-width:0}
 
 /* One continuation target containing the five saved reading lines. */
-.continue-lines .continue-reading-box{background:white;color:#151410;border:1.5px solid #151410;border-radius:22px;line-height:1.35;padding:.7em 1em;box-shadow:none}
+.continue-lines .continue-reading-box{background:white;color:#151410;border:.09375rem solid #151410;border-radius:1.375rem;line-height:1.35;padding:.7em 1em;box-shadow:none}
 .continue-reading-line{display:block}
 .continue-lines .continue-reading-box:hover,.continue-lines .continue-reading-box:focus-visible{box-shadow:0 8px 24px #0002}
 .continue-lines .continue-reading-box.chosen{background:white;color:#151410;box-shadow:0 22px 65px #0006}

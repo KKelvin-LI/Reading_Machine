@@ -15,6 +15,7 @@
 .history-meta { color:var(--history-grey); white-space:pre-wrap; }
 .history-delete { position:absolute; right:0; top:var(--nav-gap); width:.9em; height:.9em; border:0; padding:0; background:transparent; color:var(--row-colour); }
 .history-delete img { width:100%; height:100%; object-fit:contain; }
+.history-close:has(img:not([src]))::before,.history-delete:has(img:not([src]))::before{content:'×';}
 .history-delete:focus-visible,.history-document:focus-visible { outline:.1em solid #326eb3; outline-offset:.2em; }
 .history-status { color:var(--history-grey); margin:var(--nav-gap) 0; }
 .history-status:empty { display:none; }

@@ -1,3 +1,4 @@
+import {optionalRenderer} from './webgl-support';
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
@@ -5,7 +6,9 @@ let cached='';
 /** Baked 3D preview: a soft rubber block with a matte paper sleeve. */
 export function eraserIcon(){
  if(cached)return cached;
- const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(240,120);renderer.outputColorSpace=THREE.SRGBColorSpace;
+ const renderer=optionalRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});
+ if(!renderer)return '';
+ renderer.setSize(240,120);renderer.outputColorSpace=THREE.SRGBColorSpace;
  const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-2.2,2.2,1.1,-1.1,.1,20);camera.position.set(0,0,8);
  const group=new THREE.Group();group.rotation.set(.32,-.3,-.02);scene.add(group);
  const rubber=new THREE.MeshStandardMaterial({color:'#f2f2f3',roughness:.88,metalness:0});

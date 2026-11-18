@@ -9,6 +9,9 @@
   --frog-width: 40%;
   --frog-height: 76%;
 }
+@media (min-width: 40.001rem) and (orientation: landscape) {
+  .refined-home,.reader.design-frame { --home-type-size: 1.035rem; }
+}
 .refined-home {
   display: block !important;
   min-height: 32rem;
@@ -52,3 +55,5 @@ body:has(.refined-home:not([hidden])) { background: #fff; }
 
 .home-upload-status{top:calc(var(--eaty-feet,74%) + var(--eaty-ls,.65em));left:0;width:100%;margin:0;line-height:1.25;pointer-events:none}
 .frog-upload:has(.home-upload-status:not(:empty)) .frog-caption{visibility:hidden}
+
+.home-demo-link { color: inherit; font: inherit; letter-spacing: inherit; text-underline-offset: .15em; }

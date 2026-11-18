@@ -34,7 +34,7 @@
 .section-picker-arrow path{fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
 .section-picker-arrow:active svg{transform:scale(.85)}
 .section-picker-arrow[aria-expanded=true] svg{rotate:180deg}
-.section-picker-menu{position:absolute;left:0;top:100%;width:100%;max-height:65vh;overflow:auto;z-index:20;background:transparent;border-radius:0;box-shadow:none}
+.section-picker-menu{position:absolute;left:0;top:100%;width:100%;max-height:65svh;overflow:auto;overscroll-behavior:contain;z-index:20;background:transparent;border-radius:0;box-shadow:none}
 .section-picker-menu .section-button{display:block;width:100%;margin:0}
 .section-selector.picker-open{z-index:10}
 
@@ -56,7 +56,6 @@
 .section-tabs{top:var(--reader-ls)}
 .reader.design-frame .page-stage{top:calc(var(--reader-ls) + var(--section-tab-height))}
 
-.section-picker-menu.expand-moving{overflow:visible}
 .expand-moving> *{will-change:transform,opacity}
 
 .reader .section-button.section-locked:disabled{opacity:1!important;background:#fff;border-color:#151410;color:#151410;filter:none}

@@ -13,13 +13,13 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
   panel.innerHTML='<div class="history-content"><label class="history-search"><span class="about-sr-only">Search reading history</span><input type="search" placeholder="Type to search" aria-label="Search reading history"><span class="history-rule" aria-hidden="true"></span></label><p class="history-status" role="status"></p><div class="history-rows"></div></div>';
   const close=document.createElement('button');close.type='button';close.className='history-close';close.dataset.nativeControl='';close.setAttribute('aria-label','Close reading history');
   const closeArt=document.createElement('img');closeArt.alt='';close.append(closeArt);panel.querySelector('.history-search')!.append(close);
-  void historyArt('cross','#151410').then(f=>closeArt.src=f[0]);
   close.addEventListener('click',async()=>{if(!active||busy||close.disabled)return;close.disabled=true;try{await pressCross(closeArt,'#151410',cfg.deleteSeconds);if(active&&!busy)await toggle(false);}finally{close.disabled=false;}});
   home.append(panel);
   const input=panel.querySelector('input')!,rows=panel.querySelector<HTMLElement>('.history-rows')!,status=panel.querySelector<HTMLElement>('.history-status')!;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   let active=false,busy=false,hover=false,suppress=false,pressing=false,entries:HistorySummary[]=[],version=0,navigationVersion=0,view:Awaited<ReturnType<typeof createSquishyNavigation>>|undefined;
-  const ready=createSquishyNavigation(model,label,{text:'READING HISTORY',colour:cfg.buttonColour,letterColour:cfg.buttonLetterColour}).then(v=>{view=v;button.classList.add('model-ready');visual();return v;}).catch(e=>{console.warn(e);return undefined;});
+  let ready:Promise<typeof view>|undefined;
+  function prepare(){return ready??=createSquishyNavigation(model,label,{text:'READING HISTORY',colour:cfg.buttonColour,letterColour:cfg.buttonLetterColour}).then(v=>{view=v;button.classList.add('model-ready');visual();return v;}).catch(e=>{console.warn(e);return undefined;});}
   function visual(){const on=pressing||hover;button.classList.toggle('is-visual',on);view?.show(on&&!home.hidden);}
   async function slide(show:boolean,holdAtBottom=false){
     if(show){panel.hidden=false;home.classList.add('history-open');}
@@ -30,23 +30,28 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
   async function toggle(pressButton=true){
     if(busy)return;const navigation=++navigationVersion;busy=true;pressing=pressButton;suppress=!pressButton;if(!pressButton)hover=false;visual();const opening=!active;
     try{
-      if(pressButton)await (await ready)?.press();
+      if(pressButton)await (await prepare())?.press();
       if(navigation!==navigationVersion)return;
       pressing=false;suppress=true;visual();
-      if(opening){home.dispatchEvent(new Event('home:history-open'));await refresh();}
+      if(opening){
+        home.dispatchEvent(new Event('home:history-open'));
+        if(!closeArt.hasAttribute('src'))void historyArt('cross','#151410').then(f=>closeArt.src=f[0]);
+        await refresh();
+      }
       if(navigation!==navigationVersion)return;
       await slide(opening);if(navigation!==navigationVersion)return;active=opening;button.setAttribute('aria-pressed',String(active));
       if(!opening)suppress=true;
     }catch(e){status.textContent='History could not be opened. Please try again.';console.error(e);}
     finally{if(navigation===navigationVersion){pressing=false;suppress=true;busy=false;visual();}}
   }
-  button.addEventListener('pointerenter',()=>{hover=true;suppress=false;visual();});button.addEventListener('pointerleave',()=>{hover=false;visual();});
-  button.addEventListener('focus',()=>{hover=true;suppress=false;visual();});button.addEventListener('blur',()=>{hover=false;visual();});button.addEventListener('click',()=>void toggle());
+  function enter(){hover=true;suppress=false;visual();void prepare();}
+  button.addEventListener('pointerenter',enter);button.addEventListener('pointerleave',()=>{hover=false;visual();});
+  button.addEventListener('focus',enter);button.addEventListener('blur',()=>{hover=false;visual();});button.addEventListener('click',()=>void toggle());
   home.addEventListener('home:reset',()=>{
-    navigationVersion++;for(const animation of panel.getAnimations())animation.cancel();
+    version++;navigationVersion++;for(const animation of panel.getAnimations())animation.cancel();
     active=false;busy=false;pressing=false;hover=false;suppress=true;
     panel.hidden=true;home.classList.remove('history-open');button.setAttribute('aria-pressed','false');
-    input.value='';render();visual();
+    input.value='';rows.replaceChildren();visual();
   });
   home.addEventListener('home:about-open',()=>{if(active&&!busy){active=false;button.setAttribute('aria-pressed','false');suppress=true;void slide(false).then(visual);}});
   home.addEventListener('keydown',e=>{if(e.key==='Escape'&&active&&!busy)void toggle();});
@@ -61,7 +66,7 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
       const row=document.createElement('article');row.className='history-row';row.style.setProperty('--row-colour',colour);
       const link=document.createElement('button');link.type='button';link.className='history-document';link.setAttribute('data-native-control','');
       const title=document.createElement('span');title.className='history-title';title.textContent=entry.name.replace(/\.pdf$/i,'');
-      const meta=document.createElement('span');meta.className='history-meta';const date=new Intl.DateTimeFormat('en-AU',{day:'2-digit',month:'2-digit',year:'2-digit'}).format(entry.openedAt);meta.textContent=`Read on ${date}  ${Math.round(entry.progress)}%`;
+      const meta=document.createElement('span');meta.className='history-meta';const date=new Intl.DateTimeFormat('en-AU',{day:'2-digit',month:'2-digit',year:'2-digit'}).format(entry.openedAt);meta.textContent=`Read on ${date}  ${Math.floor(entry.progress)}%`;
       link.append(title,meta);link.addEventListener('click',async()=>{if(busy)return;busy=true;link.disabled=true;try{const saved=await getHistory(entry.id);if(!saved)throw new Error('PDF is missing');await slide(false,true);active=false;button.setAttribute('aria-pressed','false');await open(saved.file,entry.id,saved.page);}catch(e){status.textContent='Could not reopen this PDF. Please import it again.';}finally{busy=false;link.disabled=false;document.dispatchEvent(new Event('eaty:release-hold'));}});
       const remove=document.createElement('button');remove.type='button';remove.className='history-delete';remove.setAttribute('data-native-control','');remove.setAttribute('aria-label',`Delete ${entry.name} from history`);
       const cross=document.createElement('img');cross.alt='';remove.append(cross);void historyArt('cross',colour).then(f=>cross.src=f[0]).catch(()=>{remove.textContent='×';});
@@ -86,5 +91,5 @@ export function mountHistory(home:HTMLElement,open:(file:File,id:string,page:num
     button.style.setProperty('--above-history-blank',`${Math.max(0,blank)}px`);
   }
   new ResizeObserver(measureSpacing).observe(home);void document.fonts.ready.then(measureSpacing);
-  input.addEventListener('input',render);window.addEventListener('history:changed',()=>void refresh());void refresh();
+  input.addEventListener('input',render);window.addEventListener('history:changed',()=>{if(!panel.hidden)void refresh();});
 }

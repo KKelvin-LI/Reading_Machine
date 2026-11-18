@@ -7,7 +7,7 @@
   --reader-ls: .55em;
   --reader-font-size: clamp(.65rem, 1.15cqw, 1.25rem);
   --reader-letter-spacing: -.035em;
-  height: min(100svh, 56.25vw);
+  height: 100dvh;
   min-height: 32rem;
   display: block;
   overflow: hidden;
@@ -37,7 +37,7 @@
 .reader .pdf-page { box-shadow:none; max-width:100%; }
 .pdf-slot { position:relative; flex:none; background:white; width:100%; }
 .pdf-slot[aria-busy="true"]::before { content:'Loading page…'; position:absolute; top:1em; left:1em; color:#a7a9ac; }
-.pdf-retry { margin:1em; padding:.5em; background:white; border:1px solid #a7a9ac; }
+.pdf-retry { margin:1em; padding:.5em; background:white; border:var(--plain-outline-width) solid #a7a9ac; }
 .reading-progress-footer { position:absolute; left:0; right:0; bottom:0; height:calc(var(--reader-footer-height) / .94); display:flex; align-items:center; gap:.5em; padding-left:calc(var(--grid-inset) + (100% - 2 * var(--grid-inset) + var(--grid-gutter)) / 4); padding-right:var(--grid-inset); background:white; z-index:3; }
 #reading-progress { display:flex; align-items:center; gap:.55em; flex:1; min-width:0; }
 .reading-quarter { display:flex; align-items:center; gap:.5em; flex:1; min-width:0; }
@@ -171,7 +171,7 @@ body:has(.reader:not([hidden])){background:white}
 .progress-lock-render{object-fit:fill}
 
 /* The reading workspace fills the viewport, including taller-than-16:9 windows. */
-.reader.design-frame{height:100svh;min-height:0;max-height:none}
+.reader.design-frame{min-height:0;max-height:none}
 .reader .reading-progress-footer{bottom:var(--reader-ls);height:.85em;overflow:visible}
 .reader .page-stage{bottom:calc(.85em + 2 * var(--reader-ls))}
 
@@ -192,7 +192,7 @@ body:has(.reader:not([hidden])){background:white}
 
 /* Replay uses the checkpoint platform dimensions, but remains clickable. */
 #reading-replay{position:relative;flex:none;width:1.02em;height:1.12em;border:0;padding:0;border-radius:50%;background:transparent;font:inherit;cursor:pointer}
-#reading-replay:focus-visible{outline:2px solid #151410;outline-offset:3px}
+#reading-replay:focus-visible{outline:.125rem solid #151410;outline-offset:.1875rem}
 #reading-replay:active{transform:scale(.91)}
 
 #reading-replay:disabled{cursor:default;opacity:1;color:#151410;transform:none}

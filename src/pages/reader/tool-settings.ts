@@ -1,3 +1,4 @@
+import {optionalRenderer} from '../../three/webgl-support';
 import {playSound} from '../../ui/sounds';
 import {colourCycle,colourNames} from '../../config/palette';
 import {mountButtonToolSettings} from './button-tool-settings';
@@ -5,6 +6,26 @@ import {eraserIcon} from '../../three/eraser-icon';
 import * as THREE from 'three';
 import {cushionMaterial} from '../../three/cushion';
 import '../../styles/pages/tool-settings.css';
+let swatchImages: string[] | undefined;
+function renderSwatches(colours: string[]): string[] {
+ if(swatchImages)return swatchImages;
+ const renderer=optionalRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});
+ if(!renderer)return [];
+ renderer.setSize(64,64);renderer.outputColorSpace=THREE.SRGBColorSpace;
+ const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1.1,1.1,1.1,-1.1,.1,10);camera.position.z=4;
+ const geometry=new THREE.SphereGeometry(1,32,24),mesh=new THREE.Mesh(geometry,cushionMaterial(colours[0]));scene.add(mesh);scene.add(new THREE.AmbientLight(0xffffff,1));
+ try {
+  swatchImages=colours.map(colour=>{
+   mesh.material.color.set(colour);
+   renderer.render(scene,camera);
+   return renderer.domElement.toDataURL();
+  });
+  return swatchImages;
+ } finally {
+  geometry.dispose();mesh.material.dispose();renderer.dispose();renderer.forceContextLoss();
+ }
+}
+
 function mountPanel(root:HTMLElement,stack:HTMLElement,toolName:string){
  if(toolName==='Checker'||toolName==='Trace')return mountButtonToolSettings(root,stack,toolName);
  const panel=document.createElement('section');panel.className='tool-settings';panel.hidden=true;panel.dataset.nativeControl='';panel.setAttribute('aria-label',`${toolName} settings`);panel.dataset.tool=toolName;panel.tabIndex=0;
@@ -23,14 +44,15 @@ function mountPanel(root:HTMLElement,stack:HTMLElement,toolName:string){
  triangle.addEventListener('pointermove',e=>{if(triangle.hasPointerCapture(e.pointerId))setStroke(e.clientX);});
  triangle.addEventListener('pointerup',e=>{if(triangle.hasPointerCapture(e.pointerId))triangle.releasePointerCapture(e.pointerId);});
  triangle.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();states.get(active)!.stroke=Math.max(.1,Math.min(1.5,states.get(active)!.stroke+(e.key==='ArrowRight'?.05:-.05)));sync();}});
- // Bake once with the same PU material; no animation loop or GL context per swatch.
- const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});renderer.setSize(64,64);renderer.outputColorSpace=THREE.SRGBColorSpace;
- const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1.1,1.1,1.1,-1.1,.1,10);camera.position.z=4;
- const geometry=new THREE.SphereGeometry(1,32,24),mesh=new THREE.Mesh(geometry,cushionMaterial(colours[0]));scene.add(mesh);scene.add(new THREE.AmbientLight(0xffffff,1));
- const buttons=colours.map((colour,i)=>{mesh.material.dispose();mesh.material=cushionMaterial(colour);renderer.render(scene,camera);const button=document.createElement('button');button.type='button';button.dataset.nativeControl='';button.style.setProperty('--swatch',colour);button.setAttribute('aria-label',names[i]);button.innerHTML=`<img alt="" src="${renderer.domElement.toDataURL()}">`;panel.querySelector('.tool-palette')!.append(button);button.onclick=()=>{playSound('pen');states.get(active)!.colour=colour;states.get(active)!.erase=false;sync();};return button;});
- geometry.dispose();mesh.material.dispose();renderer.dispose();renderer.forceContextLoss();
+ const swatches=renderSwatches(colours);
+ const buttons=colours.map((colour,i)=>{const button=document.createElement('button');button.type='button';button.dataset.nativeControl='';button.style.setProperty('--swatch',colour);button.setAttribute('aria-label',names[i]);if(swatches[i]){const image=new Image();image.alt='';image.src=swatches[i];button.append(image);}panel.querySelector('.tool-palette')!.append(button);button.onclick=()=>{playSound('pen');states.get(active)!.colour=colour;states.get(active)!.erase=false;sync();};return button;});
  const eraser=document.createElement('button');eraser.type='button';eraser.className='tool-eraser';eraser.dataset.nativeControl='';eraser.setAttribute('aria-label','Eraser');eraser.setAttribute('aria-pressed','false');eraser.innerHTML='<span class="eraser-body"><span class="eraser-wrap"></span></span>';
- if(toolName==='Sketch Pad'){const img=document.createElement('img');img.src=eraserIcon();img.alt='';eraser.append(img);panel.querySelector('.tool-palette')!.append(eraser);}
+ if(toolName==='Sketch Pad'){
+  const url=eraserIcon();
+  if(url){const img=new Image();img.src=url;img.alt='';eraser.append(img);}
+  else eraser.querySelector<HTMLElement>('.eraser-body')!.style.visibility='visible';
+  panel.querySelector('.tool-palette')!.append(eraser);
+ }
  eraser.onclick=()=>{playSound('pen');const state=states.get(active)!;state.erase=!state.erase;sync();};
  function sync(){if(!active)return;const state=states.get(active)!;const paced=active==='Paced Reading';paceRow.hidden=!paced;panel.querySelector<HTMLElement>('.tool-opacity-row')!.hidden=paced;strokeRow.hidden=paced;stroke.hidden=paced;pace.value=wpm.value=String(state.wpm);buttons[8].hidden=false;panel.querySelector('h2')!.textContent=`${active.toUpperCase()} SETTING`;panel.style.setProperty('--tool-colour',state.erase?'#bdbec1':state.colour);eraser.setAttribute('aria-pressed',String(!!state.erase));opacity.setAttribute('aria-label',state.erase?'Eraser strength':'Opacity');percent.setAttribute('aria-label',state.erase?'Eraser strength percentage':'Opacity percentage');panel.style.setProperty('--tool-alpha',String(state.opacity/100));panel.style.setProperty('--tip-size',`calc(var(--reader-ls) * ${state.stroke})`);opacity.value=percent.value=String(state.opacity);stroke.value=String(state.stroke);const fraction=(state.stroke-.1)/1.4;triangle.style.left=`calc(${fraction*100}% + (${.5-fraction} * var(--tip-size)))`;triangle.setAttribute('aria-valuetext',`${state.stroke} LS`);buttons.forEach((b,i)=>b.setAttribute('aria-pressed',String(!state.erase&&colours[i]===state.colour)));root.dispatchEvent(new CustomEvent('reader:tool-settings',{bubbles:true,detail:{tool:active,...state,strokeLS:state.stroke}}));}
  pace.oninput=()=>{states.get(active)!.wpm=+pace.value;sync();};wpm.onchange=()=>{states.get(active)!.wpm=Math.max(60,Math.min(500,Math.round(+wpm.value||200)));sync();};

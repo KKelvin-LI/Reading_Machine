@@ -16,7 +16,8 @@ import {prototypeSections} from '../sections/prototype';
 import {sectionAt,type ReadingSection} from '../sections/detection';
 import {mountComments} from '../comments/controller';
 import {mountSelectionMenu} from '../selection-menu/controller';
-import {mountHighlights} from '../highlights/controller';
+import {mountHighlights,type HighlightLocation} from '../highlights/controller';
+import type {MarkInSlot} from '../highlights/marks';
 import {mountToolsButton} from './tools-button';
 import type {PDFDocumentProxy} from 'pdfjs-dist';
 import {renderPage} from '../../lib/pdf';
@@ -24,8 +25,9 @@ import {readerSettings as cfg} from '../../config/reader';
 import {saveReadingState} from '../history/store';
 import '../../styles/pages/reader.css';
 
+type ReaderSnapshot={planId?:string;panes:{section:number;fraction:number}[];rotated:number[]};
 type Slot={element:HTMLDivElement;frame:HTMLDivElement;scale:number;page:number;height:number;cropStart:number;pane:HTMLElement;section:number};
-export function mountReader(root:HTMLElement){
+export function mountReader(root:HTMLElement,prepareCompletion:()=>void){
   const stage=root.querySelector<HTMLElement>('#page-stage')!;
   const mount=root.querySelector<HTMLElement>('#page-mount')!;
   const progress=root.querySelector<HTMLElement>('#reading-progress')!;
@@ -50,7 +52,12 @@ export function mountReader(root:HTMLElement){
   const sectionStateKey=()=>`reading-machine-sequential-v1:${id??pdf?.fingerprints[0]??'document'}`;
   let historyDeleted=false;
   window.addEventListener('history:deleted',event=>{if((event as CustomEvent<string>).detail===id){historyDeleted=true;clearTimeout(saveTimer);}});
-  function saveSectionState(){if(historyDeleted)return;try{localStorage.setItem(sectionStateKey(),JSON.stringify({current:activeSection,unlocked:unlockedSection,completed:[...completedSections],fractions:[...sectionFractions]}));}catch(error){console.warn('Could not save section progress',error);}}
+  function saveSectionState(){
+    if(historyDeleted)return;
+    const current=openSections.includes(activeSection)?activeSection:openSections[0];
+    try{localStorage.setItem(sectionStateKey(),JSON.stringify({planId:sections[0].planId,current,unlocked:unlockedSection,completed:[...completedSections],fractions:[...sectionFractions]}));}
+    catch(error){console.warn('Could not save section progress',error);}
+  }
   function completeSection(index:number){if(index<=unlockedSection){const fresh=!completedSections.has(index);completedSections.add(index);sectionFractions.set(index,1);update();
       if(fresh&&progressPlan.checkpoints.slice(0,cfg.tools.length-1).includes(index))playSound('bubble');
       if(fresh&&!reduced.matches){const bar=progress.querySelector<HTMLElement>(`.reading-track[data-section="${index}"]`);if(bar){const ls=parseFloat(getComputedStyle(root).getPropertyValue('--reader-ls'))||.55;const grow=ls*parseFloat(getComputedStyle(root).fontSize)*.5;const r=bar.getBoundingClientRect();bar.animate([{transform:'scale(1)'},{transform:`scale(${1+grow*2/Math.max(1,r.width)},${1+grow*2/Math.max(1,r.height)})`,offset:.45},{transform:'scale(.98,.96)',offset:.75},{transform:'scale(1)'}],{duration:600,easing:'cubic-bezier(.22,.7,.2,1)'});}}saveSectionState();}}
@@ -58,26 +65,41 @@ export function mountReader(root:HTMLElement){
   const sectionNavigation=mountSectionNavigation(root,async (index,replace,selection)=>{
     if(index<0||index>=sections.length||index>unlockedSection||disposed)return;
     if(selection){
-      selectionMenu.reset();openSections=selection;
+      selectionMenu.reset();openSections=selection;saveSectionState();
       sectionNavigation.set(sections,activeSection,openSections,unlockedSection);
       await layout(sections[index].page,index);return;
     }
-    if(index===activeSection)return;
+    if(index===activeSection&&openSections.includes(index))return;
     selectionMenu.reset();
     if(replace!==undefined&&replace!==index)openSections=openSections.filter(i=>i!==replace);
     if(replace!==undefined&&openSections.includes(index)){sectionNavigation.set(sections,activeSection,openSections,unlockedSection);await layout(sections[index].page);return;}
     if(openSections.includes(index)){if(openSections.length===1)return;openSections=openSections.filter(i=>i!==index);}
     else openSections=[...openSections,index].sort((a,b)=>a-b);
-    sectionNavigation.set(sections,activeSection,openSections,unlockedSection);await layout(sections[index].page,index);
+    saveSectionState();sectionNavigation.set(sections,activeSection,openSections,unlockedSection);await layout(sections[index].page,index);
   });
   function indexSections(document:PDFDocumentProxy){rotatedPanes.clear();const token=++sectionVersion;
     sectionsReady=prototypeSections(document,()=>token!==sectionVersion||disposed).then(found=>{
       if(token!==sectionVersion)return;sections=found;activeSection=unlockedSection=0;completedSections.clear();sectionFractions.clear();
-      try{const saved=JSON.parse(localStorage.getItem(sectionStateKey())??'null');if(saved){unlockedSection=Math.min(sections.length-1,Math.max(0,Number(saved.unlocked)||0));activeSection=unlockedSection;for(const [n,f] of saved.fractions??[])if(Number.isInteger(n)&&n>=0&&n<sections.length&&Number.isFinite(f))sectionFractions.set(n,Math.max(0,Math.min(1,f)));for(const n of saved.completed??[])if(Number.isInteger(n)&&n>=0&&n<=unlockedSection)completedSections.add(n);}}catch{ /* Start at section one if saved progress is invalid. */ }
+      try{
+        const saved=JSON.parse(localStorage.getItem(sectionStateKey())??'null');
+        if(saved && saved.planId===sections[0].planId){
+          unlockedSection=Math.min(sections.length-1,Math.max(0,Number(saved.unlocked)||0));
+          activeSection=Number.isInteger(saved.current)&&saved.current>=0&&saved.current<=unlockedSection?saved.current:unlockedSection;
+          for(const [n,f] of saved.fractions??[])if(Number.isInteger(n)&&n>=0&&n<sections.length&&Number.isFinite(f))sectionFractions.set(n,Math.max(0,Math.min(1,f)));
+          for(const n of saved.completed??[])if(Number.isInteger(n)&&n>=0&&n<=unlockedSection)completedSections.add(n);
+        }
+      }catch{ /* Start at section one if saved progress is invalid. */ }
       toolList.replaceChildren();buildProgress();update();
       currentPage=sections[activeSection].page;openSections=[activeSection];sectionNavigation.set(sections,activeSection,openSections,unlockedSection);
-      highlights.refreshSections((page,position)=>sectionAt(sections,page,position));
-    }).catch(error=>{if(token!==sectionVersion)return;console.warn(error);sections=[{index:1,title:'Full document',page:1,position:0,source:'fallback'}];activeSection=0;openSections=[0];buildProgress();update();sectionNavigation.set(sections,0);});
+      highlights.refreshSections();
+    }).catch(error=>{
+      if(token!==sectionVersion)return;
+      console.warn(error);
+      sections=[{index:1,title:'Full document',page:1,position:0,source:'fallback'}];
+      completedSections.clear();sectionFractions.clear();toolList.replaceChildren();
+      activeSection=unlockedSection=0;openSections=[0];
+      buildProgress();update();sectionNavigation.set(sections,0);
+    });
   }
   const selected=new Set<number>();
   const toolSettings=mountToolSettings(root);
@@ -90,20 +112,41 @@ export function mountReader(root:HTMLElement){
   });
   const sketchPad=mountSketchPad(root);
   const toolsButton=mountToolsButton(root);
-  const highlights=mountHighlights(root,async(page,position)=>{
+  function locateHighlight({page,position,x,sectionTitle}:HighlightLocation){
+    // Older highlights may only have the section title and a vertical position.
+    if(x===undefined && sectionTitle){
+      const saved=sections.find(s=>s.title===sectionTitle && s.regions?.[page]?.some(r=>position>=r.start&&position<=r.end));
+      if(saved)return saved;
+    }
+    return sectionAt(sections,page,position,x);
+  }
+  const markInSlot:MarkInSlot=(slot,rect)=>{
+    const pane=slot.closest<HTMLElement>('.section-reading-pane');
+    if(!pane)return true;
+    const owner=sectionAt(sections,rect.page,rect.y+rect.h/2,rect.x+rect.w/2);
+    return sections[Number(pane.dataset.section)]===owner;
+  };
+  async function navigateInPane(from:number,to:number,page:number){
+    const alreadyOpen=openSections.includes(to);
+    if(!alreadyOpen){
+      openSections=openSections.map(section=>section===from?to:section);
+      if(rotatedPanes.delete(from))rotatedPanes.add(to);
+    }
+    activeSection=to;currentPage=page;saveSectionState();
+    sectionNavigation.set(sections,to,openSections,unlockedSection,from);
+    if(!alreadyOpen)await layout(page);
+  }
+  const highlights=mountHighlights(root,async location=>{
     await sectionsReady;
-    const index=Math.max(0,sections.indexOf(sectionAt(sections,page,position)));
+    const {page,position}=location;
+    const index=Math.max(0,sections.indexOf(locateHighlight(location)));
     if(index>unlockedSection)return;
-    if(!openSections.includes(index)){openSections=[...new Set([index,activeSection])].sort((a,b)=>a-b);sectionNavigation.set(sections,activeSection,openSections,unlockedSection);await layout(page);}
+    if(!openSections.includes(index))await navigateInPane(openSections.includes(activeSection)?activeSection:openSections[0],index,page);
     const slot=slots.find(s=>s.page===page&&s.section===index);if(!slot)return;
     slot.pane.scrollTop=slot.frame.offsetTop+(position-slot.cropStart)*slot.height;
     queue();await renderJob;
-  },async(page,position)=>{await sectionsReady;
-    const node=window.getSelection()?.anchorNode;
-    const pane=(node instanceof Element?node:node?.parentElement)?.closest<HTMLElement>('.section-reading-pane');
-    return pane?sections[Number(pane.dataset.section)]:sectionAt(sections,page,position);
-  });
-  const comments=mountComments(root);
+  },locateHighlight,markInSlot);
+  const comments=mountComments(root,markInSlot);
   const selectionMenu=mountSelectionMenu(root,range=>highlights.save(range),range=>comments.save(range));
   // Identical silhouette to the section locks; shading appears only when earned.
   const lock=(key:number)=>`<svg viewBox="0 0 32 40" aria-hidden="true"><defs><linearGradient id="progress-lock-${key}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="white" stop-opacity=".8"/><stop offset=".35" stop-color="currentColor"/><stop offset=".7" stop-color="currentColor"/><stop offset="1" stop-color="#151410" stop-opacity=".65"/></linearGradient></defs><g class="checkpoint-lock-shape"><path d="M8 17V11a8 8 0 0 1 16 0v6" fill="none" stroke="currentColor" stroke-width="3.5"/><rect x="3" y="16" width="26" height="23" rx="5" fill="currentColor"/></g><g class="checkpoint-lock-inflation" fill="url(#progress-lock-${key})"><path d="M8 17V11a8 8 0 0 1 16 0v6" fill="none" stroke="url(#progress-lock-${key})" stroke-width="3.5"/><rect x="3" y="16" width="26" height="23" rx="5"/></g><circle cx="16" cy="25" r="3" fill="currentColor" style="filter:brightness(.65)"/><path d="M16 26v6" stroke="currentColor" style="filter:brightness(.65)" stroke-width="3"/></svg>`;
@@ -130,7 +173,7 @@ export function mountReader(root:HTMLElement){
   let replayUnlocked:boolean|undefined;
   let pendingCompletionUnlock=false;
   function updateReplay(){
-    const unlocked=highWater>=100-1e-8;
+    const unlocked=completedSections.size===sections.length;
     replay.disabled=!unlocked;
     replay.title=unlocked?'Replay finishing animation':'Finish 100% to unlock replay';
     if(unlocked===replayUnlocked)return;
@@ -142,12 +185,14 @@ export function mountReader(root:HTMLElement){
   updateReplay();
   replay.addEventListener('click',event=>{
     event.stopPropagation();
-    if(!ready||disposed||root.inert||highWater<100-1e-8)return;
+    if(!ready||disposed||root.inert||replay.disabled)return;
     document.dispatchEvent(new CustomEvent('reader:replay-completion',{detail:{reader:root}}));
   });
   const completionGate=new CompletionGate({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)});
   function checkCompletion(){
-    completionGate.check(id??pdf?.fingerprints[0],highWater>=100-1e-8,ready&&!disposed&&!root.inert&&!root.hidden,finished=>{
+    const documentKey=id??pdf?.fingerprints[0];
+    const planId=sections[0].planId;
+    completionGate.check(documentKey&&planId?documentKey+':'+planId:documentKey,!replay.disabled,ready&&!disposed&&!root.inert&&!root.hidden,finished=>{
       const detail={reader:root,accepted:false,finished:(success:boolean)=>{if(success)pendingCompletionUnlock=false;finished(success);}};
       flush();document.dispatchEvent(new CustomEvent('reader:first-completion',{detail}));
       return detail.accepted;
@@ -158,9 +203,12 @@ export function mountReader(root:HTMLElement){
   document.addEventListener('catch:visibility',checkCompletion);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkCompletion();});
   function update(){
-    highWater=progressPlan.weights.reduce((sum,w,i)=>sum+w*(completedSections.has(i)?1:sectionFractions.get(i)??0),0)/progressPlan.total*100;
+    highWater=completedSections.size===sections.length?100:progressPlan.weights.reduce((sum,w,i)=>sum+w*(completedSections.has(i)?1:sectionFractions.get(i)??0),0)/progressPlan.total*100;
+    // Warm the celebration during the last tenth of reading, while the reader approaches it.
+    if(highWater>=90&&highWater<100)prepareCompletion();
     updateReplay();
     progress.setAttribute('aria-valuenow',String(highWater));
+    progress.setAttribute('aria-valuetext',`${Math.floor(highWater)}%, ${completedSections.size} of ${sections.length} sections complete`);
     root.querySelector('#reading-percent')!.textContent=`${Math.floor(highWater)}%`;
     progress.querySelectorAll<HTMLElement>('.reading-track').forEach((track,i)=>track.style.setProperty('--fill',`${(completedSections.has(i)?1:sectionFractions.get(i)??0)*100}%`));
     progress.querySelectorAll<HTMLElement>('.reading-lock').forEach(marker=>{const earned=completedSections.has(progressPlan.checkpoints[Number(marker.dataset.checkpoint)]);if(earned&&!marker.classList.contains('unlocked')){marker.classList.add('unlocked');renderProgressLock(marker,ready);} });
@@ -179,17 +227,14 @@ export function mountReader(root:HTMLElement){
 
   function flush(){
     clearTimeout(saveTimer);
-    if(id&&ready)void saveReadingState(id,currentPage,highWater).catch(console.warn);
+    if(id&&ready)void saveReadingState(id,currentPage,highWater,sections[0].planId).catch(console.warn);
   }
   function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(flush,cfg.saveDelayMs);}
-  const progressPages=()=>sections.at(-1)?.endPage??pdf?.numPages??1;
   function track(event:Event){
     const pane=event.target as HTMLElement;if(!pane.classList.contains("section-reading-pane"))return;
     if(!ready||disposed)return;
     const max=pane.scrollHeight-pane.clientHeight;
     // A fresh document starts at 0. Scrolling back never removes earned tools.
-    const range=sectionRange(sections,Number(pane.dataset.section),pdf?.numPages??1);
-    const start=range.startPage-1+range.startPosition,end=range.endPage-1+range.endPosition;
     const fraction=max>1?Math.min(1,pane.scrollTop/max):0;
     if(max>1&&pane.scrollTop>=max-2)completeSection(Number(pane.dataset.section));
     const section=Number(pane.dataset.section);
@@ -227,7 +272,7 @@ export function mountReader(root:HTMLElement){
               for(const span of slot.element.querySelectorAll<HTMLElement>('.textLayer span')){
                 const rect=span.getBoundingClientRect();if(!rect.width||!rect.height)continue;
                 const x=(rect.left+rect.width/2-box.left)/box.width,y=(rect.top+rect.height/2-box.top)/box.height;
-                if(!regions.some(r=>x>=r.left&&x<=r.right&&y>=r.start&&y<=r.end)){span.style.visibility='hidden';span.style.userSelect='none';span.setAttribute('aria-hidden','true');}
+                if(!regions.some(r=>x>=r.left&&x<=r.right&&y>=r.start&&y<=r.end)){span.hidden=true;span.setAttribute('aria-hidden','true');}
               }
             }
           }catch(error){
@@ -267,6 +312,7 @@ export function mountReader(root:HTMLElement){
     const range=sectionRange(sections,section,pdf.numPages);
     for(let n=range.startPage;n<=Math.min(pdf.numPages,range.endPage);n++){
       const regions=sections[section].regions?.[n];
+      if(sections[section].regions && !regions?.length)continue;
       const crop=regions?{start:Math.min(...regions.map(r=>r.start)),end:Math.max(...regions.map(r=>r.end))}:pageCrop(range,n);if(!crop)continue;
       const item=await pdf.getPage(n);
       if(disposed||token!==generation)return;
@@ -281,8 +327,21 @@ export function mountReader(root:HTMLElement){
       const height=natural.height*scale,frame=document.createElement('div');frame.className='section-page-window';frame.style.height=`${height*(crop.end-crop.start)}px`;element.style.top=`${-height*crop.start}px`;frame.append(element);
       slots.push({element,frame,scale,page:n,height,cropStart:crop.start,pane,section});pane.append(frame);
     }
-    if(section<sections.length-1)sectionNavigation.footer(pane,section+1,async next=>{if(!completedSections.has(section)&&pane.scrollTop+pane.clientHeight<pane.scrollHeight-2)return;completeSection(section);if(next>unlockedSection){if(section!==unlockedSection)return;unlockedSection=next;pendingReveals.add(next);}selectionMenu.reset();activeSection=unlockedSection;openSections=[...new Set([next,activeSection])].sort((a,b)=>a-b);saveSectionState();sectionNavigation.set(sections,activeSection,openSections,unlockedSection);await layout(sections[next].page);});
-    const old=previous.get(section);pane.scrollTop=old?old.fraction*Math.max(0,pane.scrollHeight-pane.clientHeight):slots.find(s=>s.pane===pane&&s.page===page)?.frame.offsetTop??0;
+    if(section<sections.length-1)sectionNavigation.footer(pane,section+1,async next=>{
+      if(!completedSections.has(section)&&pane.scrollTop+pane.clientHeight<pane.scrollHeight-2)return;
+      completeSection(section);
+      if(next>unlockedSection){unlockedSection=next;pendingReveals.add(next);}
+      selectionMenu.reset();
+      await navigateInPane(section,next,sections[next].page);
+      mount.querySelector<HTMLElement>(`.section-reading-pane[data-section="${next}"]`)?.focus({preventScroll:true});
+    });
+    const old=previous.get(section);
+    if(old){
+      pane.scrollTop=old.fraction*Math.max(0,pane.scrollHeight-pane.clientHeight);
+    }else if(page>range.startPage){
+      const target=slots.find(s=>s.pane===pane&&s.page===page);
+      if(target)pane.scrollTop=target.frame.offsetTop;
+    }
     if(added!==undefined&&!reduced.matches){if(!layoutSoundPlayed){
       layoutSoundPlayed=true;
       // Rotated panes are horizontal; the default arrangement is vertical.
@@ -306,17 +365,30 @@ export function mountReader(root:HTMLElement){
   }
   mountSidebarToggle(root,async()=>{if(!disposed&&pdf)await layout(currentPage);});
   stage.addEventListener('scroll',track,{passive:true,capture:true});
-  stage.addEventListener('wheel',event=>{const pane=(event.target as Element).closest<HTMLElement>('.section-reading-pane');if(ready&&!disposed&&pane&&event.deltaY>0&&pane.scrollHeight<=pane.clientHeight+1){const range=sectionRange(sections,Number(pane.dataset.section),pdf?.numPages??1);completeSection(Number(pane.dataset.section));saveSoon();}},{passive:true});
+  // A short final section can fit without producing any native scroll events.
+  function finishFittingPane(target:EventTarget|null){
+    const pane=target instanceof Element?target.closest<HTMLElement>('.section-reading-pane'):null;
+    if(ready&&!disposed&&pane&&pane.scrollHeight<=pane.clientHeight+1){
+      completeSection(Number(pane.dataset.section));saveSoon();
+    }
+  }
+  stage.addEventListener('wheel',event=>{if(event.deltaY>0)finishFittingPane(event.target);},{passive:true});
+  stage.addEventListener('keydown',event=>{
+    if(event.target instanceof HTMLElement && event.target.classList.contains('section-reading-pane') &&
+       ['End','PageDown','ArrowDown',' '].includes(event.key))finishFittingPane(event.target);
+  });
   window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(!disposed)void layout(currentPage);},180);});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)flush();});
   window.addEventListener('pagehide',flush);
   update();
   return {
-    snapshot(){return {
+    snapshot():ReaderSnapshot{return {
+      planId:sections[0].planId,
       panes:[...mount.querySelectorAll<HTMLElement>('.section-reading-pane')].map(pane=>({section:Number(pane.dataset.section),fraction:pane.scrollTop/Math.max(1,pane.scrollHeight-pane.clientHeight)})),
       rotated:[...rotatedPanes],
     };},
-    async restore(snapshot:{panes:{section:number;fraction:number}[];rotated:number[]}){
+    async restore(snapshot:ReaderSnapshot){
+      if(snapshot.planId!==sections[0].planId)return;
       const panes=snapshot.panes.filter(p=>Number.isInteger(p.section)&&p.section>=0&&p.section<=unlockedSection&&Number.isFinite(p.fraction));
       if(!panes.length)return;
       openSections=[...new Set(panes.map(p=>p.section))];rotatedPanes.clear();
@@ -330,7 +402,7 @@ export function mountReader(root:HTMLElement){
       queue();
     },
     async show(document:PDFDocumentProxy,historyId?:string,page=1,percent=0,animate=true){
-      connections.reset();checker.setDocument(document.fingerprints[0]??'');
+      connections.reset();checker.reset();
       sketchPad.setDocument(historyId??document.fingerprints[0]??'temporary-document');
       flush();ready=false;pendingCompletionUnlock=false;replayUnlocked=undefined;selectionMenu.reset();toolsButton.reset();disposed=false;historyDeleted=false;pdf=document;id=historyId;currentPage=page;highWater=percent;selected.clear();toolSettings.reset();pacedReading.reset();toolList.replaceChildren();update();
       await highlights.setDocument(historyId,document.numPages);
@@ -342,7 +414,9 @@ export function mountReader(root:HTMLElement){
       indexSections(document);
       await sectionsReady;
       if(disposed||pdf!==document)return;
+      checker.setDocument(document.fingerprints[0]??'',sections[0].planId);
       await layout(currentPage);
+      if(sections[0].planId)flush();
     },
     async close(){connections.reset();checker.reset();pacedReading.reset();sectionVersion++;sectionNavigation.reset();comments.reset();flush();selectionMenu.reset();highlights.reset();toolsButton.reset();disposed=true;ready=false;++generation;abort.abort();await renderJob;slots.forEach(release);slots=[];mount.replaceChildren();pdf=null;},
   };

@@ -35,7 +35,9 @@ slot.rect=new Rect(100,100,700,1000);stage.queries['.pdf-slot[data-page="1"]']=[
 const rects=[{page:1,x:.2,y:.2,w:.2,h:.025}];
 const saved=new Map([['legacy',{id:'legacy',documentId:'doc',text:'Selected text',body:'My note',createdAt:0,rects,width:.3,height:.24,open:true}]]);
 const writes=[],frames=[];
+let scale=1;
 const dependencies={
+ '../../ui/viewport-scale':{viewportScale:()=>scale},
  '../../ui/annotation-bounce':{annotationOrigin(){},async bounceSavedEaty(){}},
  '../../ui/eaty-actions':{eatyActions(arrow,_remove,toggle){arrow.toggle=toggle;}},
  '../../three/eaty-art':{applyEatyImage(){}},
@@ -95,4 +97,8 @@ assert.equal(saved.get('closed').x,undefined,'Closed legacy comments wait until 
 scroll(-2000);arrows()[0].toggle();assert.equal(saved.get('closed').x,undefined,'Offscreen text must not give an unplaced comment an arbitrary position.');
 scroll(100);assert.ok(Number.isFinite(saved.get('closed').x));
 const reopened=position(boxes()[0]);scroll(0);assert.deepEqual(position(boxes()[0]),reopened);
+const topAtReferenceScale=parseFloat(arrows()[0].style.top);
+scale=2;
+stage.dispatchEvent(new Event('scroll'));flush();
+assert.equal(parseFloat(arrows()[0].style.top),topAtReferenceScale-12,'Annotation hotspot follows the doubled marker.');
 console.log('PASS: new and saved comments stay stationary on scroll, remain draggable, and retain their positions after reopening.');

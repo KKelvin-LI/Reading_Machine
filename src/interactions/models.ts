@@ -2,7 +2,17 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export const assetUrl = (name: string) => `${import.meta.env.BASE_URL}models/${name}`;
-export async function loadModel(file: string, _kind: 'foam'|'red'|'ruler') {
+// The live and saved highlight renderers clone the same normalized template.
+const templates=new Map<string,Promise<THREE.Group>>();
+export function loadModel(file: string, _kind: 'foam'|'red'|'ruler') {
+  let template=templates.get(file);
+  if(!template){
+    template=loadTemplate(file).catch(error=>{templates.delete(file);throw error;});
+    templates.set(file,template);
+  }
+  return template;
+}
+async function loadTemplate(file:string) {
   const gltf=await new GLTFLoader().loadAsync(assetUrl(file));
   const source=gltf.scene;
   // Remove Blender presentation offsets. Orient Blender's top (+Z) toward camera.

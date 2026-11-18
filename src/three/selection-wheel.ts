@@ -60,10 +60,8 @@ export async function createSelectionWheel(host:HTMLElement){
     async press(index:number,point?:{x:number;y:number}){
       this.hover(index);
       if(s.renderer.getContext().isContextLost()){
-        await new Promise<void>(resolve=>{
-          s.renderer.domElement.addEventListener('webglcontextrestored',()=>resolve(),{once:true});
-          s.renderer.forceContextRestore();
-        });
+        // The SVG wheel still works if a driver cannot restore this context.
+        return;
       }
       const angle=cfg.actions[index].angle+Math.PI/4;
       const hit=point??{x:146*Math.cos(angle),y:-146*Math.sin(angle)};

@@ -22,4 +22,4 @@
 
 .comment-marks{display:none} /* Both annotation types now share the original foam renderer. */
 
-.comment-arrow{width:42px;height:42px}.comment-arrow img{transform:rotate(-90deg)}
+.comment-arrow{width:2.625rem;height:2.625rem}.comment-arrow img{transform:rotate(-90deg)}

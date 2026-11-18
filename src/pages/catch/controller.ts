@@ -1,3 +1,4 @@
+import {viewportScale} from '../../ui/viewport-scale';
 import {playSound,startPiWind,stopPiWind} from '../../ui/sounds';
 import {selectionMenuSettings} from '../../config/selection-menu';
 import {catchSettings as cfg} from '../../config/catch';
@@ -13,23 +14,26 @@ export function mountCatch(){
  document.body.append(overlay);overlay.append(headingText('POP IT!'));
  const balloon=overlay.querySelector<HTMLButtonElement>('button')!,img=balloon.querySelector('img')!,string=overlay.querySelector('path')!,pin=overlay.querySelector<HTMLElement>('.balloon-pin')!;
  let active=false,popped=false,raf=0,last=0,angle=0,velocity=0,wind=0,targetWind=0,nextWind=0,clicks:number[]=[],focus:HTMLElement|null=null,oldInert=false,oldOverflow='',art='';
- let balloonRotation=0;
+ let balloonRotation=0,uiScale=viewportScale();
+ window.addEventListener('resize',()=>{uiScale=viewportScale();});
  let mini:HTMLImageElement|null=null;
  let flightStart={x:0,y:0};
  let pointer:{x:number;y:number}|null=null;
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
- const ready=eatyFrontView().then(url=>{art=url;img.src=url;});
  // Alpha hit testing follows Eaty's silhouette, including the gaps beside the legs.
  const mask=document.createElement('canvas');mask.width=mask.height=512;const ctx=mask.getContext('2d',{willReadFrequently:true})!;
  let attachment=.82,visibleTop=.1;
- img.onload=()=>{ctx.drawImage(img,0,0,512,512);const pixels=ctx.getImageData(0,0,512,512).data;for(let y=0;y<512;y++){let found=false;for(let x=0;x<512;x++)if(pixels[(y*512+x)*4+3]>100){visibleTop=y/512;found=true;break;}if(found)break;}for(let y=511;y>=0;y--){if(pixels[(y*512+256)*4+3]>100){attachment=y/512;break;}}};
+ const ready=eatyFrontView().then(async url=>{
+  art=url;img.src=url;await img.decode();
+  ctx.drawImage(img,0,0,512,512);const pixels=ctx.getImageData(0,0,512,512).data;for(let y=0;y<512;y++){let found=false;for(let x=0;x<512;x++)if(pixels[(y*512+x)*4+3]>100){visibleTop=y/512;found=true;break;}if(found)break;}for(let y=511;y>=0;y--){if(pixels[(y*512+256)*4+3]>100){attachment=y/512;break;}}
+ });
  function tick(now:number){
   if(!active||popped)return;
   const dt=1.5*Math.min(.032,(now-last)/1000||.016);last=now;
   if(now>nextWind){targetWind=(Math.random()-.5)*5;nextWind=now+400+Math.random()*1000;}
   wind+=(targetWind-wind)*(1-Math.exp(-4*dt));
   if(!reduced.matches){velocity+=(wind-2.5*angle-.9*velocity)*dt;angle+=velocity*dt;angle=Math.max(-1.1,Math.min(1.1,angle));}
-  const size=.77*Math.min(innerWidth*.4,innerHeight*.36,340),length=innerHeight*.8-size*(attachment-visibleTop),ox=innerWidth/2,oy=innerHeight;
+  const size=.77*Math.min(innerWidth*.4,innerHeight*.36,340*uiScale),length=innerHeight*.8-size*(attachment-visibleTop),ox=innerWidth/2,oy=innerHeight;
   let x=ox+Math.sin(angle)*length;const y=oy-Math.cos(angle)*length;
   const edge=size*.48;if(x<edge||x>innerWidth-edge){x=Math.max(edge,Math.min(innerWidth-edge,x));angle=Math.asin(Math.max(-1,Math.min(1,(x-ox)/length)));velocity=(x<=edge?1:-1)*Math.max(1.8,Math.abs(velocity)*1.15);targetWind=velocity;}
   const targetRotation=Math.atan2(wind*25,length*.3);
@@ -47,7 +51,7 @@ export function mountCatch(){
   flightStart={x:parseFloat(r.left)+parseFloat(r.width)/2,y:parseFloat(r.top)+parseFloat(r.height)/2};
   playSound('spin');mini?.remove();mini=document.createElement('img');mini.src=art;mini.alt='Eaty';mini.className='cc-mini-eaty';
   const readerRect=document.getElementById('reader')!.getBoundingClientRect();
-  const miniSize=Math.min(selectionMenuSettings.diameter,readerRect.width-16,readerRect.height-16)*64/400;
+  const miniSize=Math.min(selectionMenuSettings.diameter*uiScale,readerRect.width-16*uiScale,readerRect.height-16*uiScale)*64/400;
   Object.assign(mini.style,{width:`${miniSize}px`,height:`${miniSize}px`,left:`${flightStart.x-miniSize/2}px`,top:`${flightStart.y-miniSize/2}px`});overlay.append(mini);
   const ceiling=-miniSize*visibleTop;
   mini.animate([{top:`${flightStart.y-miniSize/2}px`,transform:'scale(.25)'},{top:`${ceiling}px`,transform:'scale(1)',offset:.65},{top:`${ceiling}px`,transform:'scale(1.18,.72)',offset:.78},{top:`${ceiling+12}px`,transform:'scale(1)'}],{duration:reduced.matches?1:500,fill:'forwards',easing:'ease-out'});
@@ -113,7 +117,7 @@ export function mountCatch(){
     const mascot=mini,box=button.getBoundingClientRect(),r=mascot.getBoundingClientRect();overlay.append(mascot);Object.assign(mascot.style,{position:'fixed',left:`${r.left}px`,top:`${r.top}px`});
     mascot.src=await eatyTopView();
     const row=captured[0].rect,side=parseFloat(mascot.style.width);
-    const landingLeft=row.left-36,landingTop=row.top+row.height/2-side/2;
+    const landingLeft=row.left-36*uiScale,landingTop=row.top+row.height/2-side/2;
     mascot.style.transformOrigin='center';
     const frames:Keyframe[]=[],height=Math.max(100,Math.min(innerHeight*.22,220));
     for(let i=0;i<=80;i++){const t=i/80,x=r.left+(landingLeft-r.left)*t,y=r.top+(landingTop-r.top)*t-4*height*t*(1-t);frames.push({left:`${x}px`,top:`${y}px`,transform:`rotate(${-90*t}deg)`,offset:t});}
@@ -128,6 +132,8 @@ export function mountCatch(){
    scene.style.background='transparent';overlay.style.background='transparent';
    await drop.finished;button.style.visibility='hidden';
    scene.remove();overlay.style.background='';overlay.classList.remove('continuing');await finish();
+   const selection=window.getSelection();
+   selection?.removeAllRanges();selection?.addRange(range);
    document.getElementById('reader')!.dispatchEvent(new CustomEvent('reader:select-continuation',{detail:{range}}));
   });
   overlay.append(scene);list.querySelector('button')?.focus();

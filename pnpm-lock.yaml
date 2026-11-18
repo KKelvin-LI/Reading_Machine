@@ -4,13 +4,18 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  pdfjs-dist@5.7.284:
+    hash: b64d31936f2c9969725b9e7bb2cbc8c00537b47a27c8f130d3ebd90ca8104007
+    path: patches/pdfjs-dist@5.7.284.patch
+
 importers:
 
   .:
     dependencies:
       pdfjs-dist:
-        specifier: ^5.4.624
-        version: 5.7.284
+        specifier: 5.7.284
+        version: 5.7.284(patch_hash=b64d31936f2c9969725b9e7bb2cbc8c00537b47a27c8f130d3ebd90ca8104007)
       three:
         specifier: ^0.180.0
         version: 0.180.0
@@ -800,7 +805,7 @@ snapshots:
 
   nanoid@3.3.19: {}
 
-  pdfjs-dist@5.7.284:
+  pdfjs-dist@5.7.284(patch_hash=b64d31936f2c9969725b9e7bb2cbc8c00537b47a27c8f130d3ebd90ca8104007):
     optionalDependencies:
       '@napi-rs/canvas': 0.1.100
 

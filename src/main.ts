@@ -40,8 +40,8 @@ document.documentElement.classList.toggle('show-design-grid', new URLSearchParam
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = el<HTMLInputElement>('file-input');
 const stage = el('page-stage');
-mountCompletion();
-const readerController=mountReader(el('reader'));
+const completion=mountCompletion();
+const readerController=mountReader(el('reader'),completion.prepare);
 
 type DocumentEntry = { id: number; file: File; page: number; pages: number; historyId?:string };
 const library: DocumentEntry[] = [];
@@ -136,6 +136,22 @@ async function open(file: File, existing?: DocumentEntry, savedId?:string, saved
 }
 
 const homeController = mountHome(input, file => open(file));
+async function loadDemoFile(paper=prototypePapers.final){
+  const response=await fetch(paper.url);
+  if(!response.ok)throw new Error('Demo PDF unavailable');
+  return new File([await response.blob()],paper.name,{type:'application/pdf'});
+}
+const demoLink=document.querySelector<HTMLAnchorElement>('.home-demo-link')!;
+let openingDemo=false;
+demoLink.addEventListener('click',async event=>{
+  if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  event.preventDefault();
+  if(openingDemo)return;
+  openingDemo=true;
+  try{await homeController.accept(await loadDemoFile());}
+  catch{showError('The demo PDF could not be loaded. Please try again or choose a PDF.');}
+  finally{openingDemo=false;}
+});
 mountHistory(el('home'),(file,id,page)=>open(file,library.find(e=>e.historyId===id),id,page));
 window.addEventListener('history:deleted',event=>{const id=(event as CustomEvent<string>).detail;for(let i=library.length-1;i>=0;i--)if(library[i].historyId===id)library.splice(i,1);updateLibrary();});
 input.addEventListener('change', () => { const file = input.files?.[0]; input.value = ''; if (file) void (onHome ? homeController.accept(file) : open(file)); });
@@ -190,7 +206,7 @@ import {mountCatch} from './pages/catch/controller';
 mountCatch();
 
 // Dedicated local prototype entry, using the same reader/import pipeline.
-import {prototypePaper} from './config/prototype';
+import {prototypePapers} from './config/prototype';
 // Reload restores the visible document and its column positions from this tab.
 const viewKey='reading-machine-visible-window-v1';
 window.addEventListener('pagehide',()=>{
@@ -216,9 +232,10 @@ async function restoreWindow(){
   else if(saved.window==='about')document.querySelector<HTMLButtonElement>('.about-toggle')?.click();
   return;
  }
- if(!reload&&new URLSearchParams(location.search).get('prototype')==='draft-1'){
-  const response=await fetch(prototypePaper.url);if(!response.ok)throw new Error('Prototype PDF unavailable');
-  await open(new File([await response.blob()],prototypePaper.name,{type:'application/pdf'}));
+ const demo=new URLSearchParams(location.search).get('prototype');
+ if(demo==='final'||demo==='draft-1'){
+  try{await open(await loadDemoFile(prototypePapers[demo]));}
+  catch{showError('The demo PDF could not be loaded. Please try again or choose a PDF.');}
  }
 }
 void restoreWindow().catch(()=>showError('Could not restore this window. Please open the PDF from Reading History.'));

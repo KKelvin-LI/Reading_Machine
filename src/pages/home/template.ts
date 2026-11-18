@@ -9,6 +9,7 @@ export const homeTemplate = `
       <nav class="home-navigation" aria-label="Main navigation">
         <button type="button" data-native-control aria-disabled="true">ABOUT</button>
         <button type="button" data-native-control aria-disabled="true">READING HISTORY</button>
+        <a class="home-demo-link" href="?prototype=final">OPEN DEMO PDF</a>
       </nav>
     </header>
     <button class="home-account" type="button" data-native-control aria-label="Account — coming later" aria-disabled="true">K</button>

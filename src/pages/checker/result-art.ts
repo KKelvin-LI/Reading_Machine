@@ -1,3 +1,4 @@
+import {flatArt,supportsWebGL2} from '../../three/webgl-support';
 import * as THREE from 'three';
 import {studio} from '../../three/about-assets';
 import {cushionMaterial} from '../../three/cushion';
@@ -5,6 +6,10 @@ const cache=new Map<string,string>();
 /** Bake rounded, foamy 3D result symbols once; no persistent rendering loop. */
 export function checkerResultArt(correct:boolean,colour:string){
  const key=`${correct}:${colour}`;if(cache.has(key))return cache.get(key)!;
+ if(!supportsWebGL2()){
+  const path=correct?'M3 12l6 6L21 5':'M4 4l16 16M20 4L4 20';
+  return flatArt('0 0 24 24',`<path d="${path}" fill="none" stroke="${colour}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`);
+ }
  const s=studio(),material=cushionMaterial(colour);
  const points=correct?[[-.75,0],[-.22,-.48],[.78,.65]]:[[-.65,-.65],[.65,.65],[-.65,.65],[.65,-.65]];
  const segments=correct?[[0,1],[1,2]]:[[0,1],[2,3]];

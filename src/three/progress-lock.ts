@@ -1,3 +1,4 @@
+import {supportsWebGL2} from './webgl-support';
 import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {cushionMaterial} from './cushion';
@@ -28,6 +29,12 @@ function frames(base:string,colour:string,platformVisible=true){
  scene.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});mat.dispose();platformMat.dispose();renderer.dispose();renderer.forceContextLoss();cache.set(key,out);return out;
 }
 export function renderProgressLock(el:HTMLElement,animate:boolean){
+ if(!supportsWebGL2()){
+  const lock=el.querySelector('svg');
+  if(lock)lock.style.display='block';
+  el.style.background='var(--checkpoint-base)';
+  return;
+ }
  const style=getComputedStyle(el),images=frames(style.getPropertyValue('--checkpoint-base').trim(),style.getPropertyValue('--checkpoint-colour').trim());
  const img=new Image();img.alt='';img.className='progress-lock-render';el.append(img);
  if(!animate||matchMedia('(prefers-reduced-motion: reduce)').matches){img.src=images[20];return;}
@@ -36,6 +43,7 @@ export function renderProgressLock(el:HTMLElement,animate:boolean){
 
 /** The chapter cover uses the same inflated foam lock, without its progress platform. */
 export async function animateChapterLock(cover:HTMLElement,colour:string){
+ if(!supportsWebGL2()){playSound('chapterUnlock');return;}
  const images=frames(colour,colour,false),img=new Image();img.alt='Unlocking chapter';img.style.cssText='width:clamp(4rem,16%,8rem);height:auto';img.src=images[0];cover.replaceChildren(img);playSound('chapterUnlock');
  await new Promise<void>(resolve=>{const start=performance.now();function tick(now:number){if(!cover.isConnected){resolve();return;}const t=Math.min(1,(now-start)/870);img.src=images[Math.round(t*20)];if(t<1)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick);});
 }
@@ -43,8 +51,12 @@ export async function animateChapterLock(cover:HTMLElement,colour:string){
 const replayImages=new Map<string,string>();
 /** Same bevelled foam platform as the checkpoint circles, with a raised replay arrow. */
 export function renderProgressReplay(el:HTMLElement,unlocked:boolean,baseColour:string,arrowColour:string){
- if(!unlocked){
+ if(!unlocked||!supportsWebGL2()){
   el.innerHTML='<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14.5" fill="white" stroke="#151410" stroke-width="1"/><path d="M22 21a8 8 0 1 0-12 1M10 17v5h5" fill="none" stroke="#bcbec0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if(unlocked){
+   el.querySelector('circle')!.setAttribute('fill',baseColour);
+   el.querySelector('path')!.setAttribute('stroke',arrowColour);
+  }
   return;
  }
  const key=baseColour+arrowColour;let replayImage=replayImages.get(key);

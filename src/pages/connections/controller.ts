@@ -1,3 +1,4 @@
+import {viewportScale} from '../../ui/viewport-scale';
 import {playSound} from '../../ui/sounds';
 import {applyEatyImage} from '../../three/eaty-art';
 import {termIndex,findTerms,type TermAnchor} from './term-index';
@@ -5,11 +6,11 @@ import type {PDFDocumentProxy} from 'pdfjs-dist';
 import type {ReadingSection} from '../sections/detection';
 import '../../styles/pages/connections.css';
 import {savedHighlightArt} from '../../three/saved-highlight-art';
-import {textInk} from '../../interactions/text-ink';
 type Anchor=TermAnchor;
 export function mountConnections(root:HTMLElement,info:()=>{count:number;unlocked:number;pdf:PDFDocumentProxy|null;sections:ReadingSection[]},navigate:(section:number)=>Promise<void>){
  const stage=root.querySelector<HTMLElement>('#page-stage')!,ns='http://www.w3.org/2000/svg';
- const overlay=document.createElementNS(ns,'svg');overlay.classList.add('connections-overlay');document.body.append(overlay);
+ const marks=document.createElementNS(ns,'svg');marks.classList.add('connections-overlay','connections-marks');marks.setAttribute('aria-hidden','true');
+ const overlay=document.createElementNS(ns,'svg');overlay.classList.add('connections-overlay');document.body.append(marks,overlay);
  const notice=document.createElement('p');notice.className='wheel-status connections-notice';notice.hidden=true;root.append(notice);
  let active=false,mode='definition',mother:Anchor|undefined,kids=new Map<number,Anchor[]>(),frame=0,query='',visiting=false,serial=0;
  const colour=()=>mode==='usage'?'#e7484d':'#326eb3';
@@ -19,28 +20,27 @@ export function mountConnections(root:HTMLElement,info:()=>{count:number;unlocke
  async function search(){const token=++serial,document=info();kids.clear();schedule();if(!document.pdf||!query)return;prompt(mode==='definition'?'Choosing random passages…':'Finding terms in this document…');try{const index=await termIndex(document.pdf,document.sections);if(token!==serial)return;kids=findTerms(index,query,mode,mother);const count=[...kids.values()].reduce((n,a)=>n+a.length,0);prompt(count?`${count} ${mode==='definition'?'random passages':'term matches'} found — click a connecting line to follow.`:mode==='definition'?'No other text passages available.':'No other occurrences found for this term.');schedule();}catch(error){if(token===serial)prompt('Could not read the document text. Please try again.');console.warn(error);}}
  function prompt(text:string){notice.textContent=text;notice.hidden=!active;const b=stage.getBoundingClientRect();notice.style.left=`${b.left}px`;notice.style.width=`${b.width}px`;notice.style.bottom=`${Math.max(0,innerHeight-b.bottom)+16}px`;}
  function bounds(a:Anchor){const r=range(a);const pane=root.querySelector<HTMLElement>(`.section-reading-pane[data-section="${a.section}"]`);if(!r||!pane)return;const clip=pane.getBoundingClientRect();const rects=Array.from(r.getClientRects()).map(b=>({x:Math.max(b.left,clip.left),y:Math.max(b.top,clip.top),w:Math.min(b.right,clip.right)-Math.max(b.left,clip.left),h:Math.min(b.bottom,clip.bottom)-Math.max(b.top,clip.top)})).filter(b=>b.w>0&&b.h>0);return rects;}
- function node(tag:string,attrs:Record<string,string|number>){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));overlay.append(e);return e;}
+ function node(tag:string,attrs:Record<string,string|number>,layer=overlay){const e=document.createElementNS(ns,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));layer.append(e);return e;}
  async function visit(a:Anchor){const token=serial;if(!root.querySelector(`.section-reading-pane[data-section="${a.section}"]`))await navigate(a.section);if(token!==serial)return;sample(a.section);const r=range(a),pane=root.querySelector<HTMLElement>(`.section-reading-pane[data-section="${a.section}"]`);if(r&&pane){pane.scrollBy({top:r.getBoundingClientRect().top-pane.getBoundingClientRect().top-pane.clientHeight*.4,behavior:'smooth'});}schedule();}
  function badges(){root.querySelectorAll<HTMLElement>('.section-button[data-trace-section]').forEach(button=>{let badge=button.querySelector<HTMLElement>('.trace-count');if(!active||!mother){badge?.remove();return;}const section=Number(button.dataset.traceSection);if(section<0)return;if(!badge){badge=document.createElement('span');badge.className='trace-count';button.prepend(badge);}const count=String(kids.get(section)?.length??0);if(badge.textContent!==count)badge.textContent=count;badge.style.setProperty('--trace-colour',colour());badge.title=`${count} matches in this section`;badge.hidden=count==='0';});}
- function draw(){frame=0;overlay.replaceChildren();badges();if(!active||!mother||root.hidden)return;overlay.setAttribute('viewBox',`0 0 ${innerWidth} ${innerHeight}`);root.querySelectorAll<HTMLElement>('.section-reading-pane').forEach(p=>sample(Number(p.dataset.section)));
+ function draw(){frame=0;marks.replaceChildren();overlay.replaceChildren();badges();if(!active||!mother||root.hidden)return;const scale=viewportScale();for(const layer of [marks,overlay])layer.setAttribute('viewBox',`0 0 ${innerWidth} ${innerHeight}`);root.querySelectorAll<HTMLElement>('.section-reading-pane').forEach(p=>sample(Number(p.dataset.section)));
  const defs=node('defs',{}),clip=document.createElementNS(ns,'clipPath');clip.id='connections-reader-clip';defs.append(clip);
  root.querySelectorAll<HTMLElement>('.section-reading-pane').forEach(p=>{const b=p.getBoundingClientRect(),r=document.createElementNS(ns,'rect');for(const [k,v] of Object.entries({x:b.left+1,y:b.top+1,width:Math.max(0,b.width-2),height:Math.max(0,b.height-2),rx:parseFloat(getComputedStyle(p).borderTopLeftRadius)||0}))r.setAttribute(k,String(v));clip.append(r);});
  const paint=(a:Anchor,isMother=false)=>{const r=range(a),pane=root.querySelector<HTMLElement>(`.section-reading-pane[data-section="${a.section}"]`);if(!r||!pane)return;const c=pane.getBoundingClientRect(),raw=Array.from(r.getClientRects()).filter(b=>b.width>0&&b.height>0);
  for(const [rowIndex,b] of raw.entries()){if(b.bottom<c.top||b.top>c.bottom||b.right<c.left||b.left>c.right)continue;
- const image=node('image',{x:b.left-b.height*.25-(isMother&&rowIndex===0?30:0),y:b.top,width:b.width+b.height*.5+(isMother&&rowIndex===0?30:0),height:b.height,'clip-path':'url(#connections-reader-clip)'});
+ const image=node('image',{x:b.left-b.height*.25-(isMother&&rowIndex===0?30*scale:0),y:b.top,width:b.width+b.height*.5+(isMother&&rowIndex===0?30*scale:0),height:b.height,'clip-path':'url(#connections-reader-clip)'},marks);
  void savedHighlightArt([b.width/b.height],colour()).then(images=>{if(image.isConnected)image.setAttribute('href',images[0]);}).catch(console.warn);
- const ink=node('foreignObject',{x:b.left,y:b.top,width:b.width,height:b.height,'clip-path':'url(#connections-reader-clip)'});const host=document.createElement('div');host.style.cssText='position:relative;width:100%;height:100%;pointer-events:none';host.append(textInk(pane,b));ink.append(host);
  }
  const b=raw[0];
  if(isMother&&b&&b.bottom>c.top&&b.top<c.bottom){
-  const frog=node('image',{x:b.left-36,y:b.top+b.height/2-24,width:48,height:48,'clip-path':'url(#connections-reader-clip)'});
-  frog.setAttribute('transform',`rotate(-90 ${b.left-12} ${b.top+b.height/2})`);applyEatyImage(frog as SVGImageElement);
+  const frog=node('image',{x:b.left-36*scale,y:b.top+b.height/2-24*scale,width:48*scale,height:48*scale,'clip-path':'url(#connections-reader-clip)'});
+  frog.setAttribute('transform',`rotate(-90 ${b.left-12*scale} ${b.top+b.height/2})`);applyEatyImage(frog as SVGImageElement);
  }
  return b?{x:Math.max(c.left+2,Math.min(c.right-2,b.left+b.width/2)),y:Math.max(c.top+2,Math.min(c.bottom-2,b.top+b.height/2))}:undefined;};
- const m=paint(mother,true);for(const list of kids.values())for(const kid of list){const k=paint(kid);if(!k)continue;const from=m??{x:k.x,y:Math.max(0,k.y-35)};const line=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:colour(),'stroke-width':1.5,'clip-path':'url(#connections-reader-clip)'});const hit=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:'transparent','stroke-width':14,'clip-path':'url(#connections-reader-clip)',tabindex:0,role:'button','aria-label':'Travel between source and linked text'});hit.classList.add('trace-hit');const go=()=>{playSound('pen');line.animate([{strokeWidth:'1.5'},{strokeWidth:'4'},{strokeWidth:'1.5'}],{duration:350});visiting=!visiting;void visit(visiting?kid:mother!);};hit.addEventListener('click',go);hit.addEventListener('keydown',e=>{if(['Enter',' '].includes((e as KeyboardEvent).key)){e.preventDefault();if(!(e as KeyboardEvent).repeat)go();}});}
+ const m=paint(mother,true);for(const list of kids.values())for(const kid of list){const k=paint(kid);if(!k)continue;const from=m??{x:k.x,y:Math.max(0,k.y-35)};const line=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:colour(),'stroke-width':1.5*scale,'clip-path':'url(#connections-reader-clip)'});const hit=node('line',{x1:from.x,y1:from.y,x2:k.x,y2:k.y,stroke:'transparent','stroke-width':14*scale,'clip-path':'url(#connections-reader-clip)',tabindex:0,role:'button','aria-label':'Travel between source and linked text'});hit.classList.add('trace-hit');const go=()=>{playSound('pen');line.animate([{strokeWidth:String(1.5*scale)},{strokeWidth:String(4*scale)},{strokeWidth:String(1.5*scale)}],{duration:350});visiting=!visiting;void visit(visiting?kid:mother!);};hit.addEventListener('click',go);hit.addEventListener('keydown',e=>{if(['Enter',' '].includes((e as KeyboardEvent).key)){e.preventDefault();if(!(e as KeyboardEvent).repeat)go();}});}
  }
  function schedule(){if(!frame)frame=requestAnimationFrame(draw);}
- function reset(){serial++;mother=undefined;kids.clear();active=false;notice.hidden=true;overlay.replaceChildren();badges();document.body.classList.remove('connections-active');}
+ function reset(){serial++;mother=undefined;kids.clear();active=false;notice.hidden=true;marks.replaceChildren();overlay.replaceChildren();badges();document.body.classList.remove('connections-active');}
  root.addEventListener('reader:active-tool-change',e=>{active=(e as CustomEvent).detail.tool==='Trace';document.body.classList.toggle('connections-active',active);prompt('Click or select text to find similar terms.');schedule();});
  root.addEventListener('reader:tool-settings',e=>{const d=(e as CustomEvent).detail;if(d.tool==='Trace'&&d.traceMode&&d.traceMode!==mode){mode=d.traceMode;void search();}});
  root.addEventListener('reader:tool-toggle',e=>{const d=(e as CustomEvent).detail;if(d.tool==='Trace'&&!d.selected)reset();});

@@ -1,3 +1,5 @@
+import {staticEaty} from '../../three/eaty-art';
+import {supportsWebGL2} from '../../three/webgl-support';
 import {playSound} from '../../ui/sounds';
 import { mountAbout } from '../about/controller';
 import { createFrog, type FrogView } from '../../three/home-frog';
@@ -12,15 +14,19 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
   function syncFrog(){view?.setVisible(!home.hidden&&!home.classList.contains('history-open')&&!document.body.classList.contains('catch-open'));}
   document.addEventListener('catch:visibility',syncFrog);
   new MutationObserver(syncFrog).observe(home,{attributes:true,attributeFilter:['hidden','class']});
-  const ready = createFrog(document.getElementById('frog-scene')!).then(v => {
-    view = v; syncFrog(); button.classList.add('model-ready'); status.textContent = ''; return v;
-  }).catch(error => { console.error(error); status.textContent = '3D preview unavailable. Click to choose a PDF.'; return undefined; });
+  const fallback=button.querySelector<HTMLElement>('.frog-fallback')!;
+  const still=new Image();still.alt='';still.src=staticEaty('front');
+  Object.assign(still.style,{position:'absolute',inset:'0'});
+  fallback.style.inset='5% 0 12%';fallback.replaceChildren(still);
+  if(supportsWebGL2())void createFrog(document.getElementById('frog-scene')!).then(v => {
+    view = v; syncFrog(); button.classList.add('model-ready');
+  }).catch(error => console.warn('Using static upload artwork',error));
   let choosing=false;
   button.addEventListener('click', async () => {
     if (busy||choosing) return;
     choosing=true;
     playSound('bubble');
-    try { await view?.click(); input.click(); }
+    try { const animation = view?.click(); input.click(); await animation; }
     finally { choosing=false; }
   });
   async function accept(file: File, dropped=false) {
@@ -30,7 +36,7 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
     busy = true; button.setAttribute('aria-busy', 'true');
     if(dropped)playSound('bubble');
     try {
-      const model = await ready;
+      const model = view;
       status.textContent = 'Delivering your document…';
       if (model) { if(dropped)await model.click(); await model.deliver(); }
       await openReader(file);
@@ -46,7 +52,7 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
   document.addEventListener('eaty:window',event=>{
     const {panel,reverse,holdAtBottom,resolve,reject}=(event as CustomEvent<{panel:HTMLElement;reverse:boolean;holdAtBottom?:boolean;resolve:()=>void;reject:(error:unknown)=>void}>).detail;
     sceneMotion=sceneMotion.then(async()=>{
-      const model=await ready;if(!model)return;
+      const model=view;if(!model)return;
       const wasHidden=home.hidden;home.hidden=false;home.inert=true;
       // History must share the reader's stacking plane, above the body-level frog canvas.
       const parent=panel.parentElement!,next=panel.nextSibling,original=panel.getAttribute('style');
@@ -60,5 +66,5 @@ export function mountHome(input: HTMLInputElement, openReader: (file: File) => P
 
     }).then(resolve,reject);
   });
-  return { accept, async transition(panel:HTMLElement,reverse=false){ const model=await ready;if(model)await model.lift(panel,reverse); } };
+  return { accept, async transition(panel:HTMLElement,reverse=false){ await view?.lift(panel,reverse); } };
 }

@@ -1,3 +1,4 @@
+import {supportsWebGL2} from './webgl-support';
 import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {longCushionGeometry} from './long-cushion';
@@ -12,12 +13,23 @@ let navigationStudio:ReturnType<typeof studio>|undefined;
 /** Foamy cushion with a lightweight Helvetica DOM label. */
 export async function createSquishyNavigation(host: HTMLElement, label: HTMLElement, options:{text?:string;colour?:string;letterColour?:string;sectionLabel?:boolean;expandy?:boolean}={}) {
   const textLabel=options.text??'ABOUT';
+  label.style.setProperty('--button-label-colour',options.letterColour??cfg.buttonLetterColour);
+  if(!supportsWebGL2()){
+    const surface=document.createElement('span');
+    Object.assign(surface.style,{position:'absolute',inset:'0',borderRadius:'999px',background:options.colour??cfg.buttonColour});
+    surface.hidden=true;host.append(surface);
+    return {
+      show(value:boolean){surface.hidden=!value;},
+      setColour(colour:string){surface.style.background=colour;},
+      async press(_point?:{clientX:number;clientY:number}){playSound('squishy',cfg.pressSeconds);},
+      dispose(){surface.remove();},
+    };
+  }
   const shared=navigationStudio??=studio();
   const s={...shared,scene:shared.scene.clone(),camera:shared.camera.clone()};
   const canvas=document.createElement('canvas'),paint=canvas.getContext('2d')!;
   host.append(canvas);
   const material=cushionMaterial(options.colour??cfg.buttonColour);
-  label.style.setProperty('--button-label-colour',options.letterColour??cfg.buttonLetterColour);
   await document.fonts.load('16px Reading Helvetica');
   const button = new THREE.Mesh(new THREE.BufferGeometry(), material);
   s.scene.add(button);

@@ -1,6 +1,7 @@
+import {supportsWebGL2} from '../three/webgl-support';
+import {viewportScale} from '../ui/viewport-scale';
 import {playSound} from '../ui/sounds';
 import {applyEatyImage} from '../three/eaty-art';
-import {createPointingHand} from '../three/pointing-hand';
 import {nearPdfText} from './text-hit';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import * as THREE from 'three';
@@ -10,13 +11,12 @@ import { settings, Spring } from './settings';
 import './lab.css';
 import { TextSelection } from './text-selection';
 import { WrappedHighlight } from './wrapped-highlight';
-import { SelectedText } from './selected-text';
 import { hoverHeight, CURSOR_RESIZE_SPEED } from './highlight-layout';
 
-export async function startLab(){
+export function startLab(){
   const stage=document.getElementById('page-stage')!;
   const toolbar=document.createElement('div');toolbar.className='lab-toolbar';
-  toolbar.innerHTML=`<strong>Interaction trial</strong><label><input id="squishy-on" type="checkbox" checked> Squishy cursor</label><label>Ruler <select id="ruler-mode"><option value="off">Off</option><option value="ticket">Ticket V2</option></select></label><button id="clear-effects">Clear selection</button><button id="tune-effects">Tune</button><span id="lab-status" role="status">Loading models…</span>`;
+  toolbar.innerHTML=`<strong>Interaction trial</strong><label><input id="squishy-on" type="checkbox" checked> Squishy cursor</label><label>Ruler <select id="ruler-mode"><option value="off">Off</option><option value="ticket">Ticket V2</option></select></label><button id="clear-effects">Clear selection</button><button id="tune-effects">Tune</button><span id="lab-status" role="status">Drag text to highlight · click a row with ruler on</span>`;
   document.querySelector('.reader-toolbar')!.after(toolbar);
   const panel=document.createElement('aside');panel.className='tuning';panel.hidden=true;panel.innerHTML='<strong>Live tuning</strong><p>Changes last for this session. Defaults live in settings.ts.</p>';
   for(const [key,label,min,max,step] of [
@@ -24,37 +24,83 @@ export async function startLab(){
   ] as const){const row=document.createElement('label');row.textContent=label;const input=document.createElement('input');input.type='range';input.min=String(min);input.max=String(max);input.step=String(step);input.value=String(settings[key]);const value=document.createElement('output');value.textContent=input.value;input.oninput=()=>{settings[key]=Number(input.value);value.textContent=input.value;selectionDirty=true;};row.append(input,value);panel.append(row);}
   document.body.append(panel);document.getElementById('tune-effects')!.onclick=()=>panel.hidden=!panel.hidden;
   const status=(s:string)=>document.getElementById('lab-status')!.textContent=s;
-  let renderer:THREE.WebGLRenderer;
-  try{renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});}catch{status('WebGL unavailable — native reader still works.');return;}
-  renderer.localClippingEnabled=true;
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.domElement.className='interaction-canvas';renderer.domElement.setAttribute('aria-hidden','true');document.body.append(renderer.domElement);
-  const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(0,innerWidth,innerHeight,0,-1000,1000);camera.position.z=500;
-  renderer.outputColorSpace=THREE.SRGBColorSpace;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.8;
-  const pmrem=new THREE.PMREMGenerator(renderer),studio=new RoomEnvironment();
-  scene.environment=pmrem.fromScene(studio,.04).texture;studio.dispose();pmrem.dispose();
-  scene.add(new THREE.AmbientLight(0xffffff,.35));
-  const light=new THREE.DirectionalLight(0xfff6eb,2.2);light.position.set(-300,800,800);scene.add(light);
-  let savedRange:Range|null=null,selectionDirty=false;
-  const resize=()=>{renderer.setSize(innerWidth,innerHeight);camera.right=innerWidth;camera.top=innerHeight;camera.updateProjectionMatrix();selectionDirty=true;};resize();window.addEventListener('resize',resize);
+  let selectionDirty=false;
+  const reader=document.getElementById('reader')!;
+  function nativeSelection(message:string){
+    status(message);
+    const clear=()=>window.getSelection()?.removeAllRanges();
+    reader.addEventListener('reader:clear-selection',clear);
+    document.getElementById('clear-effects')!.onclick=clear;
+  }
+  if(!supportsWebGL2()){
+    nativeSelection('Using native text selection.');
+    return;
+  }
+  const scene=new THREE.Scene(),selectionScene=new THREE.Scene();
+  const camera=new THREE.OrthographicCamera(0,innerWidth,innerHeight,0,-1000,1000);
+  camera.position.z=500;
+  const selectionCanvas=document.createElement('canvas');
+  selectionCanvas.className='live-highlight-canvas';
+  selectionCanvas.setAttribute('aria-hidden','true');selectionCanvas.hidden=true;
+  const selectionContext=selectionCanvas.getContext('2d')!;
+  let renderer:THREE.WebGLRenderer|undefined,rendererFailed=false;
+  let savedRange:Range|null=null;
+  let uiScale=viewportScale();
+  const resize=()=>{uiScale=viewportScale();renderer?.setSize(innerWidth,innerHeight);camera.right=innerWidth;camera.top=innerHeight;camera.updateProjectionMatrix();selectionDirty=true;};
+  window.addEventListener('resize',resize);
   const place=(obj:THREE.Object3D,x:number,y:number,z=10)=>obj.position.set(x,innerHeight-y,z);
-  let round:THREE.Group,red:THREE.Group,ticket:THREE.Group,anchor:THREE.Group;
-  try{[round,red,ticket,anchor]=await Promise.all([loadModel('round-button-click.glb','foam'),loadModel('red-squishy-block.glb','red'),loadModel('ticket-ruler-v2.glb','ruler'),loadModel('squishy-anchor.glb','foam')]);}
-  catch(e){status('A model could not load. Native reading remains available.');console.error(e);return;}
-  status('Drag text to highlight · click a row with ruler on');
-  round.traverse(o=>{if(o instanceof THREE.Mesh){const materials=Array.isArray(o.material)?o.material:[o.material];const tinted=materials.map(m=>{const copy=m.clone();if(copy instanceof THREE.MeshStandardMaterial)copy.color.set(settings.cursorColor);return copy;});o.material=Array.isArray(o.material)?tinted:tinted[0];}});
-  const hand=createPointingHand();scene.add(hand);
-  scene.add(round,ticket,anchor);ticket.visible=round.visible=anchor.visible=false;
-  // The cursor uses the Blender button mesh. Highlights use a runtime strip to fit any text length.
+  function prepareRenderer(){
+    if(renderer||rendererFailed)return renderer;
+    try{
+      renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+      renderer.localClippingEnabled=true;
+      renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+      renderer.outputColorSpace=THREE.SRGBColorSpace;
+      renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.8;
+      const pmrem=new THREE.PMREMGenerator(renderer),studio=new RoomEnvironment();
+      scene.environment=pmrem.fromScene(studio,.04).texture;studio.dispose();pmrem.dispose();
+      scene.add(new THREE.AmbientLight(0xffffff,.35));
+      const light=new THREE.DirectionalLight(0xfff6eb,2.2);light.position.set(-300,800,800);scene.add(light);
+      selectionScene.environment=scene.environment;
+      selectionScene.add(...scene.children.map(light=>light.clone()));
+      renderer.domElement.className='interaction-canvas';renderer.domElement.setAttribute('aria-hidden','true');
+      document.body.append(selectionCanvas,renderer.domElement);
+      renderer.domElement.addEventListener('webglcontextlost',()=>{
+        stage.classList.remove('squishy-selection');selectionCanvas.hidden=true;cancelFeedback();
+      });
+      renderer.domElement.addEventListener('webglcontextrestored',()=>{selectionDirty=true;});
+      resize();requestAnimationFrame(tick);
+      return renderer;
+    }catch(error){
+      renderer?.dispose();renderer=undefined;rendererFailed=true;
+      console.warn('Using native text selection.',error);
+    }
+  }
+  let anchor:THREE.Group|undefined,ticket:THREE.Group|undefined;
+  let anchorRequest:Promise<void>|undefined;
+  function prepareAnchor(){
+    if(anchor||anchorRequest||rendererFailed)return;
+    anchorRequest=loadModel('squishy-anchor.glb','foam').then(model=>{
+      if(!prepareRenderer())return;
+      anchor=model;selectionDirty=true;
+      if(textSelection.active&&!transitions.size)showPress();
+    }).catch(error=>console.warn('Using native selection colours.',error))
+      .finally(()=>{anchorRequest=undefined;});
+  }
+  function prepareTicket(){
+    if(ticket||rendererFailed)return;
+    void loadModel('ticket-ruler-v2.glb','ruler').then(model=>{
+      if(ticket||!prepareRenderer())return;
+      ticket=model;ticket.visible=false;scene.add(ticket);rowLayer.classList.remove('ruler-pending');
+    }).catch(error=>console.warn('Using the selected PDF row without ticket artwork.',error));
+  }
   const cursorPress=new Spring();let pointer={x:0,y:0},inside=false,down=false;let enabled=true;
   const glow=document.createElement('div');glow.className='ruler-shadow';glow.hidden=true;document.body.append(glow);
   const rowLayer=document.createElement('div');rowLayer.className='ruler-row';rowLayer.hidden=true;document.body.append(rowLayer);
   let rulerMode='off',rowRect:DOMRect|null=null;const rowSpring=new Spring();
-  const strips=new THREE.Group(),letters=new THREE.Group(),masks=new THREE.Group();scene.add(strips,letters,masks);
+  const strips=new THREE.Group();selectionScene.add(strips);
   const textSelection=new TextSelection(stage);
   const transitions=new Map<number,WrappedHighlight>();
-  const selectedText=new SelectedText(stage);
-  const reader=document.getElementById('reader')!;
   const frogCursor=document.createElement('div');frogCursor.className='frog-select-cursor';frogCursor.setAttribute('aria-hidden','true');
   frogCursor.hidden=true;
   frogCursor.innerHTML='<svg viewBox="0 0 84 48"><image x="36" y="0" width="48" height="48" transform="rotate(-90 60 24)"/></svg>';
@@ -66,28 +112,46 @@ export async function startLab(){
   function cancelFeedback(){const previous=feedback;feedback=null;if(previous)for(const t of transitions.values())t.setFeedback();previous?.resolve();}
   reader.addEventListener('reader:cancel-selection-animation',cancelFeedback);
   reader.addEventListener('reader:animate-selection',event=>{
+    if(!transitions.size||!renderer||renderer.getContext().isContextLost())return;
+    event.preventDefault();
     cancelFeedback();const detail=(event as CustomEvent<{padding:number;resolve:()=>void}>).detail;
     feedback={start:performance.now(),padding:detail.padding,resolve:detail.resolve};
   });
   let pending:WrappedHighlight|null=null;
   let cursorHeight=settings.cursorSize;
   let releasing:{transition:WrappedHighlight;spring:Spring;start:number;x:number;y:number}[]=[];
-  function disposeGroup(group:THREE.Group){for(const o of [...group.children]){o.traverse(c=>{if(c instanceof THREE.Mesh){c.geometry.dispose();const ms=Array.isArray(c.material)?c.material:[c.material];ms.forEach(m=>m.dispose());}});group.remove(o);}}
   let highlightHold:ReturnType<typeof setTimeout>|undefined;
-  function cancelHighlightHold(){clearTimeout(highlightHold);highlightHold=undefined;}
+  let highlightPress:{x:number;y:number;id:number;canDrag:boolean}|undefined;
+  function cancelHighlightHold(){clearTimeout(highlightHold);highlightHold=undefined;highlightPress=undefined;}
+  function showPress(){
+    if(!anchor||pending)return;
+    pending=new WrappedHighlight(anchor,highlightOrigin.x,highlightOrigin.y,cursorPress.value,cursorHeight);
+    strips.add(pending.root);
+  }
+  function beginHighlight(){
+    const start=highlightPress;
+    cancelHighlightHold();
+    if(!start||reader.hidden||reader.inert||!enabled||!textSelection.begin(start.x,start.y))return;
+    playSound('lick');
+    down=true;cursorPress.target=1;highlightOrigin={x:start.x,y:start.y};eatyAnchor=null;
+    stage.setPointerCapture(start.id);
+    prepareAnchor();showPress();
+    textSelection.move(pointer.x,pointer.y);selectionDirty=true;
+  }
   function clearSelection(){resetSelection(true);}
   function resetSelection(animate:boolean){
     cancelHighlightHold();
     const first=savedRange&&!savedRange.collapsed?selectionLines(savedRange)[0]:undefined;
-    const retractX=first?first.left-12:highlightOrigin.x,retractY=innerHeight-(first?first.top+first.height/2:highlightOrigin.y);
+    const retractX=first?first.left-12*uiScale:highlightOrigin.x,retractY=innerHeight-(first?first.top+first.height/2:highlightOrigin.y);
     down=false;cursorPress.target=0;selectionDirty=false;
     cancelFeedback();
-    selectedText.clear();savedRange=null;window.getSelection()?.removeAllRanges();disposeGroup(letters);disposeGroup(masks);
+    savedRange=null;window.getSelection()?.removeAllRanges();
     textSelection.end();
     pending?.dispose();pending=null;
     if(animate&&transitions.size&&!reader.hidden)playSound('retract',Math.max(...[...transitions.values()].map(t=>t.retractDuration))/1000);
-    for(const transition of transitions.values()){if(!animate){transition.dispose();continue;}scene.add(transition.root);const spring=new Spring();spring.value=1;spring.target=0;releasing.push({transition,spring,start:performance.now(),x:retractX,y:retractY});}transitions.clear();
-    rowSpring.target=0;stage.classList.toggle('squishy-selection',enabled);
+    for(const transition of transitions.values()){if(!animate){transition.dispose();continue;}selectionScene.add(transition.root);const spring=new Spring();spring.value=1;spring.target=0;releasing.push({transition,spring,start:performance.now(),x:retractX,y:retractY});}transitions.clear();
+    rowSpring.target=0;stage.classList.remove('squishy-selection');
+    if(!ticket){rowRect=null;rowLayer.hidden=true;glow.hidden=true;}
   }
   // Outside clicks use the same animated withdrawal as clicks in the text pane.
   // The action wheel must keep its source selection until its action completes.
@@ -99,14 +163,35 @@ export async function startLab(){
   },true);
   document.getElementById('clear-effects')!.onclick=clearSelection;
   document.getElementById('squishy-on')!.onchange=e=>{enabled=(e.target as HTMLInputElement).checked;if(!enabled)clearSelection();};
-  document.getElementById('ruler-mode')!.onchange=e=>{rulerMode=(e.target as HTMLSelectElement).value;clearSelection();};
+  document.getElementById('ruler-mode')!.onchange=e=>{rulerMode=(e.target as HTMLSelectElement).value;clearSelection();if(rulerMode!=='off')prepareTicket();};
   // Maintain semantic DOM buttons and their native keyboard/focus behaviour.
   const controls:{el:HTMLButtonElement;model:THREE.Group;spring:Spring}[]=[];
-  document.querySelectorAll<HTMLButtonElement>('button:not(#dismiss-error):not([data-native-control])').forEach(el=>{
-    const model=(el.classList.contains('icon-button')?round:red).clone(true);scene.add(model);const spring=new Spring();controls.push({el,model,spring});el.classList.add('squishy-control');
-    el.addEventListener('click',()=>{if(!el.disabled&&!el.matches('#back-home,#reader-close,.history-close,.highlights-close,.history-delete'))playSound('squishy');});
-    el.addEventListener('pointerdown',()=>spring.target=1);el.addEventListener('pointerleave',()=>spring.target=0);
-    el.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter')spring.target=1;});el.addEventListener('keyup',()=>spring.target=0);
+  const controlObserver=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting||reader.hidden||rendererFailed)continue;
+      const el=entry.target as HTMLButtonElement;
+      controlObserver.unobserve(el);
+      const icon=el.classList.contains('icon-button');
+      void loadModel(icon?'round-button-click.glb':'red-squishy-block.glb',icon?'foam':'red').then(template=>{
+        if(!el.isConnected||!prepareRenderer())return;
+        const model=template.clone(true);
+        if(icon)model.traverse(object=>{
+          if(!(object instanceof THREE.Mesh))return;
+          const tint=(material:THREE.Material)=>{
+            const copy=material.clone();if(copy instanceof THREE.MeshStandardMaterial)copy.color.set(settings.cursorColor);return copy;
+          };
+          object.material=Array.isArray(object.material)?object.material.map(tint):tint(object.material);
+        });
+        model.visible=false;scene.add(model);
+        const spring=new Spring();controls.push({el,model,spring});el.classList.add('squishy-control');
+        el.addEventListener('pointerdown',()=>spring.target=1);el.addEventListener('pointerleave',()=>spring.target=0);
+        el.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter')spring.target=1;});el.addEventListener('keyup',()=>spring.target=0);
+      }).catch(error=>console.warn('Using native button appearance.',error));
+    }
+  });
+  reader.querySelectorAll<HTMLButtonElement>('button:not([data-native-control])').forEach(el=>{
+    controlObserver.observe(el);
+    el.addEventListener('click',()=>{if(!el.disabled)playSound('squishy');});
   });
   window.addEventListener('pointerup',()=>{
     cancelHighlightHold();
@@ -114,24 +199,14 @@ export async function startLab(){
     if(sel?.rangeCount&&stage.contains(sel.anchorNode)&&stage.contains(sel.focusNode)&&!sel.isCollapsed){savedRange=sel.getRangeAt(0).cloneRange();rebuildSelection();}
     textSelection.end();pending?.dispose();pending=null;down=false;cursorPress.target=0;controls.forEach(c=>c.spring.target=0);selectionDirty=true;});
   window.addEventListener('blur',()=>{cancelHighlightHold();textSelection.end();down=false;inside=false;cursorPress.target=0;controls.forEach(c=>c.spring.target=0);});
-  const home=document.getElementById('home')!;
-  let readerInside=false;
-  window.addEventListener('pointermove',e=>{if(reader.classList.contains('selection-wheel-open'))pointer={x:e.clientX,y:e.clientY};});
-  reader.addEventListener('pointerenter',e=>{if(e.pointerType==='touch')return;readerInside=true;pointer={x:e.clientX,y:e.clientY};});
-  reader.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;readerInside=true;pointer={x:e.clientX,y:e.clientY};});
-  reader.addEventListener('pointerleave',()=>{readerInside=false;});
-  reader.addEventListener('pointerdown',e=>{if(e.button===0&&e.pointerType!=='touch')cursorPress.target=1;});
-  reader.addEventListener('pointercancel',()=>{cancelHighlightHold();textSelection.end();down=false;readerInside=false;cursorPress.target=0;});
-  window.addEventListener('blur',()=>{readerInside=false;});
-  let homeInside=false;
-  home.addEventListener('pointerenter',e=>{if(e.pointerType==='touch')return;homeInside=true;pointer={x:e.clientX,y:e.clientY};});
-  home.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;homeInside=true;pointer={x:e.clientX,y:e.clientY};});
-  home.addEventListener('pointerleave',()=>{homeInside=false;});
-  home.addEventListener('pointerdown',e=>{if(e.button!==0||e.pointerType==='touch')return;pointer={x:e.clientX,y:e.clientY};cursorPress.target=1;});
-  home.addEventListener('pointercancel',()=>{homeInside=false;cursorPress.target=0;});
-  window.addEventListener('blur',()=>{homeInside=false;});
+  reader.addEventListener('pointercancel',()=>{cancelHighlightHold();textSelection.end();down=false;cursorPress.target=0;});
   stage.addEventListener('pointerenter',e=>{inside=true;pointer={x:e.clientX,y:e.clientY};});stage.addEventListener('pointerleave',()=>inside=false);
   stage.addEventListener('pointermove',e=>{pointer={x:e.clientX,y:e.clientY};if(textSelection.active){e.preventDefault();textSelection.move(e.clientX,e.clientY);}if(down)selectionDirty=true;});
+  window.addEventListener('pointermove',e=>{
+    if(!highlightPress?.canDrag||highlightPress.id!==e.pointerId||!(e.buttons&1))return;
+    if(Math.hypot(e.clientX-highlightPress.x,e.clientY-highlightPress.y)<4)return;
+    pointer={x:e.clientX,y:e.clientY};beginHighlight();
+  });
   reader.addEventListener('pointerdown',e=>{
     if(reader.dataset.activeTool==='Sketch Pad'||(reader.dataset.activeTool==='Paced Reading'&&reader.dataset.pacedPaused!=='true'))return;
     const target=e.target as Element;
@@ -141,20 +216,12 @@ export async function startLab(){
     if(!stage.contains(target)&&!nearPdfText(stage,e.clientX,e.clientY))return;
     if(e.button!==0)return;pointer={x:e.clientX,y:e.clientY};down=true;cursorPress.target=1;
     clearSelection();
-    if(rulerMode!=='off'){e.preventDefault();selectRow(e.clientY);}
+    if(rulerMode!=='off'){e.preventDefault();prepareTicket();selectRow(e.clientY);}
     else if(enabled){
-      e.preventDefault();const start={x:e.clientX,y:e.clientY,id:e.pointerId};
-      highlightHold=setTimeout(()=>{
-        highlightHold=undefined;
-        if(reader.hidden||reader.inert||!enabled)return;
-        if(textSelection.begin(start.x,start.y)){
-          playSound('lick');
-          down=true;highlightOrigin={x:start.x,y:start.y};eatyAnchor=null;
-          stage.setPointerCapture(start.id);
-          pending=new WrappedHighlight(anchor,start.x,start.y,cursorPress.value,cursorHeight);strips.add(pending.root);
-          textSelection.move(pointer.x,pointer.y);selectionDirty=true;
-        }
-      },220);
+      if(!nearPdfText(stage,e.clientX,e.clientY))return;
+      e.preventDefault();
+      highlightPress={x:e.clientX,y:e.clientY,id:e.pointerId,canDrag:e.pointerType!=='touch'&&nearPdfText(stage,e.clientX,e.clientY,0)};
+      highlightHold=setTimeout(beginHighlight,220);
     }
   });
   window.addEventListener('keydown',e=>{if(e.key==='Escape')clearSelection();});
@@ -167,13 +234,13 @@ export async function startLab(){
     clearSelection();eatyAnchor=null;
     const range=(event as CustomEvent<{range:Range}>).detail.range;
     const selection=window.getSelection();selection?.removeAllRanges();selection?.addRange(range);
-    savedRange=range.cloneRange();enabled=true;rebuildSelection();selectionDirty=true;
+    savedRange=range.cloneRange();enabled=true;prepareAnchor();rebuildSelection();selectionDirty=true;
   });
   // Scroll changes screen coordinates, not the selected DOM Range.
   document.addEventListener('scroll',()=>{selectionDirty=true;},true);
   stage.addEventListener('pointercancel',clearSelection);
   document.addEventListener('selectionchange',()=>{
-    const sel=window.getSelection();if(sel?.rangeCount&&stage.contains(sel.anchorNode)&&stage.contains(sel.focusNode)&&sel.toString().trim()){savedRange=sel.getRangeAt(0).cloneRange();selectionDirty=true;}
+    const sel=window.getSelection();if(sel?.rangeCount&&stage.contains(sel.anchorNode)&&stage.contains(sel.focusNode)&&sel.toString().trim()){savedRange=sel.getRangeAt(0).cloneRange();if(enabled)prepareAnchor();selectionDirty=true;}
     else if(savedRange){savedRange=null;selectionDirty=true;}
   });
   function selectRow(y:number){
@@ -190,28 +257,30 @@ export async function startLab(){
     const ctx=copy.getContext('2d')!,pixels=ctx.getImageData(0,0,copy.width,copy.height);
     for(let i=0;i<pixels.data.length;i+=4){const whiteness=Math.min(pixels.data[i],pixels.data[i+1],pixels.data[i+2]);pixels.data[i+3]=255-whiteness;pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=0;}
     ctx.putImageData(pixels,0,0);
-    rowLayer.replaceChildren(copy);rowLayer.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;rowLayer.hidden=false;
+    rowLayer.classList.toggle('ruler-pending',!ticket);rowLayer.replaceChildren(copy);rowLayer.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;rowLayer.hidden=false;
   }
   function rebuildSelection(){
-    selectionDirty=false;disposeGroup(letters);disposeGroup(masks);stage.classList.toggle('squishy-selection',enabled);
+    selectionDirty=false;
+    if(!anchor||!renderer||renderer.getContext().isContextLost())return;
     const rects=savedRange&&enabled?selectionLines(savedRange):[];
-    if(!rects.length){selectedText.clear();for(const t of transitions.values())t.dispose();transitions.clear();return;}
+    stage.classList.toggle('squishy-selection',rects.length>0);
+    if(!rects.length){for(const t of transitions.values())t.dispose();transitions.clear();return;}
     let transition=transitions.get(0);
     if(!transition){transition=pending??new WrappedHighlight(anchor,pointer.x,pointer.y,cursorPress.value,cursorHeight);pending=null;transitions.set(0,transition);strips.add(transition.root);}
     const selection=window.getSelection();
     const backwards=!!selection&&!!savedRange&&(selection.anchorNode!==savedRange.startContainer||selection.anchorOffset!==savedRange.startOffset);
         if(!eatyAnchor){const initial=backwards?rects[rects.length-1]:rects[0];const x=backwards?initial.left+initial.width:initial.left,y=initial.top+initial.height/2;const node=selection?.anchorNode;const slot=(node instanceof Element?node:node?.parentElement)?.closest<HTMLElement>('.pdf-slot')??null;const b=slot?.getBoundingClientRect();eatyAnchor={x,y,backwards,slot,u:b?(x-b.left)/b.width:0,v:b?(y-b.top)/b.height:0};}
     transition.setRows(rects.map((row,i)=>backwards?(i===rects.length-1?{...row,width:row.width+30}:row):(i===0?{...row,left:row.left-30,width:row.width+30}:row)),backwards?-1:1);
-    selectedText.update(rects);
   }
 
   let last=performance.now();const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let lastHomeFrame='',hoverKey='',cachedHoverHeight=settings.cursorSize;
+  let renderedTicket=false,lastFrame='',hoverKey='',cachedHoverHeight=settings.cursorSize;
   let scrollRevision=0;stage.addEventListener('scroll',()=>scrollRevision++,{passive:true,capture:true});
   function tick(now:number){
-    if(document.hidden||document.body.classList.contains('catch-open')){last=now;requestAnimationFrame(tick);return;}
+    if(!renderer)return;
+    if(document.hidden||renderer.getContext().isContextLost()||document.body.classList.contains('catch-open')){last=now;requestAnimationFrame(tick);return;}
     const dt=Math.min(.04,(now-last)/1000);last=now;
-    const readerVisible=!document.getElementById('reader')!.hidden;
+    const readerVisible=!reader.hidden;
     const frogCursorActive=readerVisible&&!reader.inert&&enabled&&(textSelection.active||feedback!==null||!!savedRange&&!savedRange.collapsed||releasing.length>0)&&!reader.classList.contains('selection-wheel-open');
     reader.classList.toggle('squishy-cursor-active',frogCursorActive);
     frogCursor.hidden=!frogCursorActive;
@@ -219,16 +288,13 @@ export async function startLab(){
     const activePane=eatyAnchor?.slot?.closest('.section-reading-pane');
     const bounds=activePane?.getBoundingClientRect();
     const clip=bounds?`inset(${Math.max(0,bounds.top+1)}px ${Math.max(0,innerWidth-bounds.right+1)}px ${Math.max(0,innerHeight-bounds.bottom+1)}px ${Math.max(0,bounds.left+1)}px)`:'none';
-    renderer.domElement.style.clipPath=clip;selectedText.setClip(clip);
-    if(bounds&&eatyAnchor)frogCursor.hidden=frogCursor.hidden||eatyAnchor.y<bounds.top+24||eatyAnchor.y>bounds.bottom-24;
+    renderer.domElement.style.clipPath=clip;selectionCanvas.style.clipPath=clip;
+    if(bounds&&eatyAnchor)frogCursor.hidden=frogCursor.hidden||eatyAnchor.y<bounds.top+24*uiScale||eatyAnchor.y>bounds.bottom-24*uiScale;
     const cursorX=eatyAnchor?.x??highlightOrigin.x,cursorY=eatyAnchor?.y??highlightOrigin.y,reverse=eatyAnchor?.backwards??false;
-    const halfLS=parseFloat(getComputedStyle(reader).fontSize)*.325;
-    frogCursor.style.left=`${reverse?cursorX-48:cursorX-72}px`;frogCursor.style.top=`${cursorY-24}px`;
+    frogCursor.style.left=`${cursorX-(reverse?48:72)*uiScale}px`;frogCursor.style.top=`${cursorY-24*uiScale}px`;
     frogCursor.querySelector('image')!.setAttribute('transform',`rotate(${reverse?90:-90} 60 24)`);
-    const homeCursor=!home.hidden&&homeInside&&enabled;
-    home.classList.toggle('squishy-cursor-active',homeCursor);
     if(selectionDirty)rebuildSelection();
-    const pressValue=Math.max(0,cursorPress.step(dt,reduced.matches));
+    cursorPress.step(dt,reduced.matches);
     if(feedback){
       const elapsed=reduced.matches?430:now-feedback.start,t=Math.min(1,elapsed/430);
       const expansion=t<.22?-.25*t/.22:t<.58?-.25+1.25*(t-.22)/.36:1-(t-.58)/.42;
@@ -241,28 +307,33 @@ export async function startLab(){
     if(nextHoverKey!==hoverKey){hoverKey=nextHoverKey;cachedHoverHeight=inside?hoverHeight(stage,pointer.x,pointer.y):settings.cursorSize;}
     const targetHeight=cachedHoverHeight;
     cursorHeight=reduced.matches?targetHeight:THREE.MathUtils.damp(cursorHeight,targetHeight,CURSOR_RESIZE_SPEED,dt);
-    round.visible=reader.dataset.activeTool!=='Checker'&&reader.dataset.activeTool!=='Sketch Pad'&&!document.body.classList.contains('paced-tool-active')&&!document.body.classList.contains('paced-awaiting')&&!document.body.classList.contains('tool-slider-active')&&!reader.classList.contains('selection-wheel-open')&&!reader.classList.contains('awaiting-text-selection')&&(homeCursor||(readerVisible&&(readerInside||reader.classList.contains('selection-wheel-open'))&&enabled&&!pending));
-    hand.visible=false;round.visible=false;
-    if(hand.visible){place(hand,pointer.x,pointer.y,30);const size=settings.cursorSize*1.25;hand.scale.set(size,size*(1-pressValue*.06),size*(1-pressValue*.18));}
-    // Selection rectangles are the single source of truth, during drag and after release.
-    // The anchor is a hidden template, never a second free-floating highlight.
-    anchor.visible=false;
-    if(down&&savedRange&&!savedRange.collapsed)hand.visible=false;
     if(!down&&!savedRange&&transitions.size)clearSelection();
     if(readerVisible)for(const c of controls){const r=c.el.getBoundingClientRect();c.model.visible=r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&!c.el.disabled;const v=c.spring.step(dt,reduced.matches);if(c.model.visible){place(c.model,r.left+r.width/2,r.top+r.height/2,15);c.model.scale.set(r.width,r.height/(c.model.userData.aspect||.4),Math.min(r.width,60));morph(c.model,'Sponge_Press',Math.max(0,v)*settings.pressDepth);morph(c.model,'Finger_Press',Math.max(0,v)*settings.pressDepth);}}
     else for(const c of controls)c.model.visible=false;
-    const pull=rowSpring.step(dt,reduced.matches);ticket.visible=false;
+    const pull=rowSpring.step(dt,reduced.matches);if(ticket)ticket.visible=false;
     if(rowRect&&rowSpring.target===0&&Math.abs(pull)<.008&&Math.abs(rowSpring.velocity)<.03){rowRect=null;rowLayer.hidden=true;glow.hidden=true;}
-    if(readerVisible&&rowRect){const r=rowRect,model=ticket;model.visible=rulerMode!=='off';const width=r.width+130;const heightScale=(r.height+18)/(model.userData.aspect||.15);model.scale.set(width,heightScale,heightScale);place(model,r.left+r.width/2+34,r.top+r.height/2,3);morph(model,'Select_Pull_Left',pull*.45);const c=rowLayer.firstElementChild as HTMLElement|null;if(c)c.style.transform=`translateX(${-pull*settings.rulerPull}px)`;glow.hidden=false;glow.style.cssText=`left:${r.left-8}px;top:${r.top-5}px;width:${r.width+16}px;height:${r.height+10}px`;}
+    if(readerVisible&&rowRect&&ticket){const r=rowRect,model=ticket;model.visible=rulerMode!=='off';const width=r.width+130;const heightScale=(r.height+18)/(model.userData.aspect||.15);model.scale.set(width,heightScale,heightScale);place(model,r.left+r.width/2+34,r.top+r.height/2,3);morph(model,'Select_Pull_Left',pull*.45);const c=rowLayer.firstElementChild as HTMLElement|null;if(c)c.style.transform=`translateX(${-pull*settings.rulerPull}px)`;glow.hidden=false;glow.style.cssText=`left:${r.left-8}px;top:${r.top-5}px;width:${r.width+16}px;height:${r.height+10}px`;}
     for(const item of releasing){const p=reduced.matches?1:Math.min(1,(now-item.start)/item.transition.retractDuration);item.spring.value=1-p;item.transition.retract(p);if(p===1)item.transition.dispose();}
     releasing=releasing.filter(item=>item.spring.value>0);
 
-    strips.visible=letters.visible=masks.visible=readerVisible;
-    const homeFrame=[hand.visible,pointer.x,pointer.y,Math.round(pressValue*1000),Math.round(cursorHeight*100)].join('/');
-    if(homeFrame!==lastHomeFrame||pending||[...transitions.values()].some(t=>t.isAnimating)||releasing.length||rowRect||controls.some(c=>Math.abs(c.spring.value-c.spring.target)>.001)){renderer.render(scene,camera);lastHomeFrame=homeFrame;}
+    selectionCanvas.hidden=!readerVisible||(!pending&&!transitions.size&&!releasing.length);
+    const highlightAnimating=!!pending||[...transitions.values()].some(t=>t.isAnimating)||releasing.length>0;
+    if(!selectionCanvas.hidden&&highlightAnimating){
+      const source=renderer.domElement;
+      if(selectionCanvas.width!==source.width)selectionCanvas.width=source.width;
+      if(selectionCanvas.height!==source.height)selectionCanvas.height=source.height;
+      renderer.render(selectionScene,camera);
+      selectionContext.globalCompositeOperation='copy';
+      selectionContext.drawImage(source,0,0);
+    }
+    const frame=controls.filter(c=>c.model.visible).map(({model,spring})=>
+      [model.position.x,model.position.y,model.scale.x,model.scale.y,Math.round(spring.value*1000)].join(',')
+    ).join('/');
+    // The selection pass borrows the WebGL canvas; repaint the control pass before compositing.
+    if(frame!==lastFrame||highlightAnimating||rowRect||renderedTicket){renderer.render(scene,camera);lastFrame=frame;}
+    renderedTicket=!!rowRect;
     requestAnimationFrame(tick);
   }
-  requestAnimationFrame(tick);
   // Read-only diagnostics for manual/automated trial checks.
-  (window as any).__readingLab={settings,scene,clearSelection,get state(){return {highlightLines:strips.children.length,raisedLetters:letters.children.length,rulerMode,modelsReady:true};}};
+  (window as any).__readingLab={settings,scene,clearSelection,get state(){return {highlightLines:strips.children.length,raisedLetters:0,rulerMode,modelsReady:!!anchor};}};
 }

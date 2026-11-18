@@ -1,6 +1,6 @@
 import {listHighlights,deleteHighlight} from '../highlights/store';
 import {listComments,removeComment} from '../comments/store';
-export type HistoryEntry={id:string;name:string;openedAt:number;progress:number;page:number;file:File};
+export type HistoryEntry={id:string;name:string;openedAt:number;progress:number;planId?:string;page:number;file:File};
 export type HistorySummary=Omit<HistoryEntry,'file'>;
 const database=new Promise<IDBDatabase>((resolve,reject)=>{
   const request=indexedDB.open('reading-machine-history',1);
@@ -23,7 +23,7 @@ export const getHistory=(id:string)=>transaction<HistoryEntry|undefined>('readon
 export async function rememberPdf(file:File,knownId?:string){
   const id=knownId||Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))).map(v=>v.toString(16).padStart(2,'0')).join('');
   const previous=await getHistory(id);
-  const entry:HistoryEntry={id,file,name:file.name,openedAt:Date.now(),progress:previous?.progress??0,page:previous?.page??1};
+  const entry:HistoryEntry={id,file,name:file.name,openedAt:Date.now(),progress:previous?.progress??0,planId:previous?.planId,page:previous?.page??1};
   await transaction('readwrite',s=>s.put(entry));changed();return entry;
 }
 export async function removeHistory(id:string){
@@ -43,11 +43,18 @@ export async function updateHistoryProgress(id:string,percentage:number){
 export async function saveHistoryPage(id:string,page:number){const entry=await getHistory(id);if(entry){entry.page=page;await transaction('readwrite',s=>s.put(entry));}}
 
 /** Save page and furthest progress atomically; concurrent writes cannot lose an unlock. */
-export async function saveReadingState(id:string,page:number,progress:number){
+export async function saveReadingState(id:string,page:number,progress:number,planId?:string){
   const db=await database;
   await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction('pdfs','readwrite'),store=tx.objectStore('pdfs'),request=store.get(id);
-    request.onsuccess=()=>{const entry=request.result as HistoryEntry|undefined;if(entry){entry.page=Math.max(1,page);entry.progress=Math.max(entry.progress,Math.min(100,Math.max(0,progress)));store.put(entry);}};
+    request.onsuccess=()=>{
+      const entry=request.result as HistoryEntry|undefined;
+      if(!entry)return;
+      const previous=entry.planId===planId?entry.progress:0;
+      entry.page=Math.max(1,page);entry.planId=planId;
+      entry.progress=Math.max(previous,Math.min(100,Math.max(0,progress)));
+      store.put(entry);
+    };
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
   });changed();
 }

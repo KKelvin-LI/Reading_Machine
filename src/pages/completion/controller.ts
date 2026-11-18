@@ -1,3 +1,5 @@
+import {staticEaty} from '../../three/eaty-art';
+import {supportsWebGL2} from '../../three/webgl-support';
 import {playSound} from '../../ui/sounds';
 import {createCompletionEaty} from '../../three/completion-eaty';
 import {createPopLettering} from '../../three/pop-lettering';
@@ -7,8 +9,10 @@ export function mountCompletion(){
  let yumTemplate:HTMLImageElement|undefined;
  let yumInkBottom=1;
  const parked=document.createElement('div');
- let prepared:Promise<Awaited<ReturnType<typeof createCompletionEaty>>>|undefined;
- function prepare(){return prepared??=createCompletionEaty(parked).then(async view=>{
+ let prepared:Promise<Awaited<ReturnType<typeof createCompletionEaty>>|undefined>|undefined;
+ function prepare(){
+  if(!supportsWebGL2())return Promise.resolve(undefined);
+  return prepared??=createCompletionEaty(parked).then(async view=>{
   yumTemplate??=createPopLettering('YUM','#f89823');
   await yumTemplate.decode();
   const measure=document.createElement('canvas');measure.width=yumTemplate.naturalWidth;measure.height=yumTemplate.naturalHeight;
@@ -17,8 +21,7 @@ export function mountCompletion(){
   for(let y=measure.height-1;y>=0;y--){let ink=false;for(let x=0;x<measure.width;x++)if(rgba[(y*measure.width+x)*4+3]>16){ink=true;break;}if(ink){yumInkBottom=(y+1)/measure.height;break;}}
 
   view.pose(0,0,1,0,Math.PI/2,1,Math.PI/2);view.pose(0,0,1,0,0);return view;
- }).catch(error=>{prepared=undefined;throw error;});}
- document.addEventListener('reader:page-rendered',()=>{if(!prepared)void prepare().catch(console.warn);});
+ }).catch(error=>{console.warn('Using the 2D completion celebration',error);return undefined;});}
  const playCompletion=async(event:Event)=>{
   const detail=(event as CustomEvent<{reader:HTMLElement;accepted?:boolean;finished?:(success:boolean)=>void}>).detail;
   if(playing)return;playing=true;detail.accepted=true;
@@ -53,7 +56,22 @@ export function mountCompletion(){
    ],{duration:reduced?1:300,easing:'ease-in-out',fill:'forwards'});
    await Promise.all([expansion.finished,whiteout.finished]);
    overlay.style.background='white';whiteout.cancel();expansion.cancel();expansion=undefined;
-   eaty=await ready;eaty.attach(canvas);eaty.smile(0);
+   eaty=await ready;
+   if(!eaty){
+    const mascot=document.createElement('img');
+    mascot.src=staticEaty('front');mascot.alt='';
+    mascot.style.width='min(30vw, 40vh)';
+    const message=createPopLettering('YUM','#f89823');message.className='completion-yum';
+    message.style.width='min(30vw, 36vh)';
+    Object.assign(canvas.style,{display:'grid',alignContent:'center',justifyItems:'center',gap:'2vh'});
+    canvas.append(message,mascot);
+    playSound('win');
+    await mascot.animate(reduced?[{opacity:1},{opacity:1}]:[
+     {transform:'scale(.88,.94)'},{transform:'scale(1.08,1.02)',offset:.4},{transform:'scale(1)'}
+    ],{duration:reduced?550:950,easing:'ease-out'}).finished;
+    completed=true;return;
+   }
+   eaty.attach(canvas);eaty.smile(0);
    await tween(650,t=>{
     const e=1-(1-t)**3;
     eaty!.pose(hingeX,mouthY+(height-mouthY+scale)*(1-e)-Math.sin(Math.PI*t)*scale*.5,scale,0,Math.PI/2*e,1,Math.PI/2*e);
