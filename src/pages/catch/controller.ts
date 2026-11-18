@@ -84,8 +84,12 @@ export function mountCatch(){
   showContinuation();
  }
  let savedLine:HTMLElement|null=null;
- let captured: {node:HTMLElement;rect:DOMRect;style:CSSStyleDeclaration}[]=[];
- let savedPane:HTMLElement|null=null,columnWidth=600,columnFont=20;
+ type CapturedRun = {node:HTMLElement;rect:DOMRect;selector:string;font:string;letterSpacing:string;transform:string;direction:string};
+ let captured:CapturedRun[]=[];
+ let savedPane:HTMLElement|null=null;
+ function currentRun(run:CapturedRun){
+  return run.node.isConnected?run.node:document.querySelector<HTMLElement>(run.selector);
+ }
  function readingActive(){const reader=document.getElementById('reader');return !!reader&&!reader.hidden&&!reader.inert&&document.getElementById('home')!.hidden;}
  document.addEventListener('reader:page-rendered',()=>{if(savedLine&&!savedLine.isConnected)savedLine=null;if(savedPane&&!savedPane.isConnected)savedPane=null;});
  document.addEventListener('pointerdown',event=>{
@@ -103,27 +107,59 @@ export function mountCatch(){
   const scene=document.createElement('div');scene.className='catch-continuation';
   const heading=headingText('CLICK TO CONTINUE.');scene.append(heading);
   const list=document.createElement('div');list.className='continue-lines';scene.append(list);
-  const pane=savedLine?.isConnected?savedLine.closest('.section-reading-pane'):(savedPane?.isConnected?savedPane:document.querySelector('.section-reading-pane'));
   const button=document.createElement('button');button.className='continue-reading-box';button.setAttribute('aria-label','Click this text box to resume reading');
-  const padding=columnFont*.65;
-  const left=Math.min(...captured.map(item=>item.rect.left)),top=Math.min(...captured.map(item=>item.rect.top)),right=Math.max(...captured.map(item=>item.rect.right)),bottom=Math.max(...captured.map(item=>item.rect.bottom));
-  Object.assign(list.style,{position:'absolute',left:`${left-padding}px`,top:`${top-padding}px`,width:`${right-left+padding*2}px`,height:`${bottom-top+padding*2}px`,padding:'0',overflow:'visible',maxHeight:'none'});
-  for(const item of captured){const row=document.createElement('span');row.textContent=item.node.textContent;Object.assign(row.style,{position:'absolute',left:`${item.rect.left-left+padding}px`,top:`${item.rect.top-top+padding}px`,font:item.style.font,letterSpacing:item.style.letterSpacing,lineHeight:`${item.rect.height}px`,whiteSpace:'pre',transformOrigin:'left top'});button.append(row);}
-  list.append(button);button.addEventListener('click',async()=>{
+  const left=Math.min(...captured.map(item=>item.rect.left)),top=Math.min(...captured.map(item=>item.rect.top));
+  const right=Math.max(...captured.map(item=>item.rect.right)),bottom=Math.max(...captured.map(item=>item.rect.bottom));
+  const padding=Math.max(...captured.map(item=>Math.min(item.rect.height,item.rect.width)))*.85;
+  const width=right-left+padding*2, height=bottom-top+padding*2;
+  Object.assign(list.style,{width:`${width}px`,height:`${height}px`});
+  button.style.borderRadius=`min(1.375rem, ${padding*2}px)`;
+  const rows=captured.map(item=>{
+   const row=document.createElement('span');row.textContent=item.node.textContent;
+   // Anchor the centre so the original PDF rotation also works for vertical text.
+   const x=item.rect.left-left+padding+item.rect.width/2, y=item.rect.top-top+padding+item.rect.height/2;
+   Object.assign(row.style,{left:`${x}px`,top:`${y}px`,font:item.font,letterSpacing:item.letterSpacing,direction:item.direction,
+    transform:`translate(-50%, -50%) ${item.transform}`});
+   button.append(row);return row;
+  });
+  list.append(button);overlay.append(scene);
+  // PDF runs have independent horizontal scales. Fit each copy to its captured
+  // screen bounds after the browser has laid it out in the button's font context.
+  const rowBoxes=rows.map(row=>row.getBoundingClientRect());
+  rows.forEach((row,index)=>{
+   const {rect,transform}=captured[index], natural=rowBoxes[index];
+   if(natural.width&&natural.height)row.style.transform=`translate(-50%, -50%) scale(${rect.width/natural.width}, ${rect.height/natural.height}) ${transform}`;
+  });
+  function fitBox(){
+   const vw=scene.clientWidth,vh=scene.clientHeight,margin=Math.min(padding,vw*.02,vh*.02);
+   const scale=Math.min(1,(vw-2*margin)/width,(vh-2*margin)/height);
+   list.style.transform=`scale(${scale})`;
+   list.style.left=`${Math.max(margin,Math.min(left-padding,vw-margin-width*scale))}px`;
+   list.style.top=`${Math.max(margin,Math.min(top-padding,vh-margin-height*scale))}px`;
+  }
+  fitBox();
+  const observer=new ResizeObserver(fitBox);observer.observe(scene);
+  button.addEventListener('click',async()=>{
    if(scene.classList.contains('is-pressing'))return;playSound('close');scene.classList.add('is-pressing');button.classList.add('chosen');
-   if(mini){mini.getAnimations().forEach(a=>a.cancel());const box=button.getBoundingClientRect();Object.assign(mini.style,{position:'absolute',left:`${parseFloat(mini.style.left)-box.left}px`,top:`${parseFloat(mini.style.top)-box.top}px`});button.append(mini);}
+   if(mini){
+    const r=mini.getBoundingClientRect(),box=button.getBoundingClientRect(),scale=box.width/width;
+    mini.getAnimations().forEach(a=>a.cancel());
+    if(mini.parentElement!==button){
+     Object.assign(mini.style,{position:'absolute',left:`${(r.left-box.left)/scale}px`,top:`${(r.top-box.top)/scale}px`});
+     button.append(mini);
+    }
+   }
    await button.animate([{transform:'scale(1)'},{transform:'scale(.97,.94)',offset:.22},{transform:'scale(1.04,1.08)',offset:.58},{transform:'scale(1)'}],{duration:reduced.matches?1:430,easing:'ease-out'}).finished;
    if(mini){
-    const mascot=mini,box=button.getBoundingClientRect(),r=mascot.getBoundingClientRect();overlay.append(mascot);Object.assign(mascot.style,{position:'fixed',left:`${r.left}px`,top:`${r.top}px`});
+    const mascot=mini,r=mascot.getBoundingClientRect();overlay.append(mascot);Object.assign(mascot.style,{position:'fixed',left:`${r.left}px`,top:`${r.top}px`,width:`${r.width}px`,height:`${r.height}px`});
     mascot.src=await eatyTopView();
-    const row=captured[0].rect,side=parseFloat(mascot.style.width);
+    const row=currentRun(captured[0])?.getBoundingClientRect()??captured[0].rect,side=parseFloat(mascot.style.width);
     const landingLeft=row.left-36*uiScale,landingTop=row.top+row.height/2-side/2;
     mascot.style.transformOrigin='center';
     const frames:Keyframe[]=[],height=Math.max(100,Math.min(innerHeight*.22,220));
     for(let i=0;i<=80;i++){const t=i/80,x=r.left+(landingLeft-r.left)*t,y=r.top+(landingTop-r.top)*t-4*height*t*(1-t);frames.push({left:`${x}px`,top:`${y}px`,transform:`rotate(${-90*t}deg)`,offset:t});}
     await mascot.animate(frames,{duration:reduced.matches?1:1040,fill:'forwards',easing:'ease-in-out'}).finished;
    }
-   const range=document.createRange();range.setStart(captured[0].node.firstChild!,0);const lastNode=captured[captured.length-1].node.lastChild!;range.setEnd(lastNode,lastNode.textContent?.length??0);
 
    if(mini){mini.remove();mini=null;}
    if(!reduced.matches)playSound('windowDown',.2);
@@ -131,12 +167,15 @@ export function mountCatch(){
    // Reveal the reading surface as the continuation box clears the window.
    scene.style.background='transparent';overlay.style.background='transparent';
    await drop.finished;button.style.visibility='hidden';
-   scene.remove();overlay.style.background='';overlay.classList.remove('continuing');await finish();
+   observer.disconnect();scene.remove();overlay.style.background='';overlay.classList.remove('continuing');await finish();
+   const first=currentRun(captured[0])?.firstChild,last=currentRun(captured[captured.length-1])?.lastChild;
+   if(!first||!last)return;
+   const range=document.createRange();range.setStart(first,0);range.setEnd(last,last.textContent?.length??0);
    const selection=window.getSelection();
    selection?.removeAllRanges();selection?.addRange(range);
    document.getElementById('reader')!.dispatchEvent(new CustomEvent('reader:select-continuation',{detail:{range}}));
   });
-  overlay.append(scene);list.querySelector('button')?.focus();
+  button.focus({preventScroll:true});
   if(mini){
    const mascot=mini,rect=button.getBoundingClientRect(),size=parseFloat(mascot.style.width);
    const start={x:flightStart.x,y:12-size*visibleTop},end={x:rect.right-rect.width*.075-size/2,y:rect.top-size*attachment};
@@ -151,8 +190,10 @@ export function mountCatch(){
    }
    const flight=mascot.animate(frames,{duration:reduced.matches?1:1300,fill:'forwards',easing:'linear'});
    void flight.finished.then(async()=>{
-    if(!mascot.isConnected)return;
-    mascot.style.left=`${end.x}px`;mascot.style.top=`${end.y}px`;flight.cancel();
+    if(!mascot.isConnected||scene.classList.contains('is-pressing'))return;
+    flight.cancel();
+    button.append(mascot);
+    Object.assign(mascot.style,{position:'absolute',left:`calc(92.5% - ${size/2}px)`,top:`${-size*attachment}px`});
     await mascot.animate([{transform:'scale(1)'},{transform:'scale(1.28,.68)',offset:.18},{transform:'translateY(-12px) scale(.9,1.12)',offset:.47},{transform:'scale(1.08,.91)',offset:.76},{transform:'scale(1)'}],{duration:reduced.matches?1:520,easing:'ease-out'}).finished;
    }).catch(()=>{});
 
@@ -165,15 +206,19 @@ export function mountCatch(){
   const pane=(savedLine?.isConnected?savedLine.closest<HTMLElement>('.section-reading-pane'):savedPane?.isConnected?savedPane:document.querySelector<HTMLElement>('.section-reading-pane'));
   captured=[];
   if(pane){
-   const spans=[...pane.querySelectorAll<HTMLElement>('.textLayer span')].filter(node=>node.textContent?.trim());
+   const spans=[...pane.querySelectorAll<HTMLElement>('.textLayer [data-pdf-item]')].filter(node=>node.textContent?.trim());
    const rows:HTMLElement[][]=[];
    for(const node of spans){const previous=rows.at(-1);if(previous&&previous[0].closest('.textLayer')===node.closest('.textLayer')&&Math.abs(previous[0].getBoundingClientRect().top-node.getBoundingClientRect().top)<3)previous.push(node);else rows.push([node]);}
    let index=rows.findIndex(row=>row.includes(savedLine!));
    if(index<0){const bounds=pane.getBoundingClientRect();index=Math.max(0,rows.findIndex(row=>row[0].getBoundingClientRect().bottom>bounds.top));}
-   captured=rows.slice(index,index+5).flat().map(node=>({node,rect:node.getBoundingClientRect(),style:getComputedStyle(node)}));
+   captured=rows.slice(index,index+5).flat().map(node=>{
+    const style=getComputedStyle(node),page=node.closest<HTMLElement>('.pdf-slot')!.dataset.page;
+    const selector=`.section-reading-pane[data-section="${pane.dataset.section}"] .pdf-slot[data-page="${page}"] [data-pdf-item="${node.dataset.pdfItem}"]`;
+    return {node,selector,rect:node.getBoundingClientRect(),font:style.font||`${style.fontStyle} ${style.fontWeight} ${style.fontSize}/${style.lineHeight} ${style.fontFamily}`,
+     letterSpacing:style.letterSpacing,direction:style.direction,transform:style.transform==='none'?'':style.transform};
+   });
   }
   if(!captured.length)return;
-  if(pane){const style=getComputedStyle(pane);columnWidth=pane.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);const text=pane.querySelector<HTMLElement>('.textLayer span');columnFont=text?parseFloat(getComputedStyle(text).fontSize):parseFloat(style.fontSize);}
 startPiWind();active=true;popped=false;clicks=[];pointer=null;angle=velocity=wind=targetWind=balloonRotation=0;nextWind=0;focus=document.activeElement as HTMLElement;oldInert=app.inert;oldOverflow=document.body.style.overflow;app.inert=true;document.body.style.overflow='hidden';document.body.classList.add('catch-open');overlay.hidden=false;overlay.querySelector<HTMLImageElement>('.catch-heading')!.hidden=false;balloon.hidden=false;pin.hidden=true;document.dispatchEvent(new Event('catch:visibility'));
   overlay.style.setProperty('--catch-heading-size',getComputedStyle(document.querySelector('#reader-sidebar')!).fontSize);
   await ready;balloon.focus({preventScroll:true});last=performance.now();raf=requestAnimationFrame(tick);

@@ -14,12 +14,20 @@ let navigationStudio:ReturnType<typeof studio>|undefined;
 export async function createSquishyNavigation(host: HTMLElement, label: HTMLElement, options:{text?:string;colour?:string;letterColour?:string;sectionLabel?:boolean;expandy?:boolean}={}) {
   const textLabel=options.text??'ABOUT';
   label.style.setProperty('--button-label-colour',options.letterColour??cfg.buttonLetterColour);
+  const control = host.parentElement!;
+  let visible = false;
+  function updateVisibility(value:boolean){
+    const entering=value&&!visible;
+    visible=value;
+    if(entering&&control.matches(':hover')&&!control.closest('[inert]')&&!control.matches(':disabled'))playSound('hover');
+    return entering;
+  }
   if(!supportsWebGL2()){
     const surface=document.createElement('span');
     Object.assign(surface.style,{position:'absolute',inset:'0',borderRadius:'999px',background:options.colour??cfg.buttonColour});
     surface.hidden=true;host.append(surface);
     return {
-      show(value:boolean){surface.hidden=!value;},
+      show(value:boolean){updateVisibility(value);surface.hidden=!value;},
       setColour(colour:string){surface.style.background=colour;},
       async press(_point?:{clientX:number;clientY:number}){playSound('squishy',cfg.pressSeconds);},
       dispose(){surface.remove();},
@@ -34,8 +42,7 @@ export async function createSquishyNavigation(host: HTMLElement, label: HTMLElem
   const button = new THREE.Mesh(new THREE.BufferGeometry(), material);
   s.scene.add(button);
   const measure = document.createElement('canvas').getContext('2d')!;
-  const control = host.parentElement!;
-  let visible = false, disposed = false, raf = 0, elapsed = 0, lastFrame = 0, duration = 1;
+  let disposed = false, raf = 0, elapsed = 0, lastFrame = 0, duration = 1;
   let builtWidth = 0, builtHeight = 0, builtCap = 0, layoutFrame = 0;
   let completion: (()=>void)|undefined;
   let pending: Promise<void>|undefined;
@@ -124,7 +131,7 @@ export async function createSquishyNavigation(host: HTMLElement, label: HTMLElem
   const observer=new ResizeObserver(resize);observer.observe(host);observer.observe(control);
   measureLabel();
   return {
-    show(value:boolean){const entering=value&&!visible;visible=value;if(entering){if(control.matches(':hover')&&!control.closest('[inert]')&&!control.matches(':disabled'))playSound('hover');expand();}if(value){resize();scheduleLayout();}else{cancelAnimationFrame(layoutFrame);cancelAnimationFrame(raf);settle();}},
+    show(value:boolean){if(updateVisibility(value))expand();if(value){resize();scheduleLayout();}else{cancelAnimationFrame(layoutFrame);cancelAnimationFrame(raf);settle();}},
     setColour(colour:string){material.color.set(colour);render(performance.now());},
     press(point?:{clientX:number;clientY:number}):Promise<void>{
       if(point){const b=host.getBoundingClientRect();pressPoint={x:(point.clientX-b.left)/b.width,y:(point.clientY-b.top)/b.height};}

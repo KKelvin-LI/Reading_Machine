@@ -1,5 +1,5 @@
 import type {MarkRect} from './marks';
-export type SavedHighlight={id:string;documentId:string;text:string;savedAt:number;page:number;endPage:number;section:number;sectionTitle?:string;position:number;rects?:MarkRect[]};
+export type SavedHighlight={id:string;documentId:string;text:string;savedAt:number;page:number;endPage:number;section:number;sectionTitle?:string;position:number;geometryVersion?:number;rects?:MarkRect[]};
 const db=new Promise<IDBDatabase>((resolve,reject)=>{
   const r=indexedDB.open('reading-machine-highlights',1);
   r.onupgradeneeded=()=>{const store=r.result.createObjectStore('highlights',{keyPath:'id'});store.createIndex('documentId','documentId');};

@@ -3,6 +3,12 @@
 .connections-overlay .trace-hit{pointer-events:stroke;cursor:pointer}
 .connections-notice{position:fixed;z-index:70;box-sizing:border-box;pointer-events:none}
 .connections-notice[hidden]{display:none}
+/* The trace SVGs live on body, outside the reader's stacking context. */
+body:has(#reader.highlights-open) > .connections-overlay,
+.reader.highlights-open .connections-notice,
+.reader.highlights-open .tool-settings[data-tool="Trace"] {
+  display: none;
+}
 .trace-count{display:inline-flex;align-items:center;justify-content:center;flex:none;width:calc(2 * var(--reader-ls));height:calc(2 * var(--reader-ls));margin-right:var(--reader-ls);border-radius:50%;background:radial-gradient(circle at 32% 22%,#ffffffb3,transparent 55%),var(--trace-colour);box-shadow:inset 0 -.12em .18em #0005;color:#fff;position:relative;z-index:2;font:inherit;vertical-align:middle}
 body.connections-active #reader .section-reading-pane{cursor:text!important}
 

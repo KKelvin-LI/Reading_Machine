@@ -69,7 +69,8 @@ button { transition: background .15s, border-color .15s; }
 #page-mount { width: max-content; min-width: 100%; display: flex; justify-content: center; }
 .pdf-page { position: relative; flex-shrink: 0; background: white; box-shadow: var(--shadow-paper); }
 .pdf-page canvas { display: block; }
-.pdf-page .textLayer { z-index: 1; }
+/* PDF.js fits selectable text to the printed glyphs using normal character spacing. */
+.pdf-page .textLayer { z-index: 1; letter-spacing: normal; }
 .pdf-page .textLayer ::selection { background: #548cff55; }
 .reader-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-height: 36px; padding: 9px 28px; font-size: .75rem; color: var(--color-muted); background: #f8fafc; border-top: 1px solid var(--color-border); }
 .loading { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; background: #202a3b; color: white; border-radius: 30px; padding: 12px 20px; box-shadow: 0 5px 20px #0002; font-size: .875rem; z-index: 20; white-space: nowrap; }

@@ -149,6 +149,7 @@ export function mountSelectionMenu(root:HTMLElement,highlight:(range:Range)=>Pro
   async function activate(index:number,point?:{x:number;y:number}){
     if(busy||index<0)return;
     busy=true;hover(index);const token=version,saved=range?.cloneRange(),action=cfg.actions[index];
+    playSound('squishy',cfg.pressSeconds);
 
     const model=await prepare();if(token!==version)return;const bounds=menu.getBoundingClientRect();
     await model?.press(index,point?{x:(point.x-bounds.left)/bounds.width*400-200,y:200-(point.y-bounds.top)/bounds.height*400}:undefined);if(token!==version)return;

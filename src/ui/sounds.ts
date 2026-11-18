@@ -3,22 +3,84 @@ const files = { close: 'close-mouse-click.mp3', bubble: 'soap-bubble.mp3', hover
 type Sound = keyof typeof files;
 let context: AudioContext | undefined;
 let mounted = false;
+let interacted = false;
+const buffers = new Map<Sound, Promise<AudioBuffer>>();
+const playing = new Map<Sound, AudioBufferSourceNode>();
+const pending = new Map<Sound, symbol>();
 
 function resumeAudio(audio: AudioContext) {
   // Safari can report interrupted after tab switches or an audio interruption.
   return audio.state !== 'running' && audio.state !== 'closed'
     ? audio.resume() : Promise.resolve();
 }
-const buffers = new Map<Sound, Promise<AudioBuffer>>();
-const playing = new Map<Sound, AudioBufferSourceNode>();
+
+function trimSquish(audio: AudioContext, decoded: AudioBuffer) {
+  // Remove recording lead-in/tail so the first audible press meets the dent.
+  let first = decoded.length, last = 0;
+  for (let c = 0; c < decoded.numberOfChannels; c++) {
+    const samples = decoded.getChannelData(c);
+    for (let i = 0; i < samples.length; i++) {
+      if (Math.abs(samples[i]) > .015) { first = Math.min(first, i); last = Math.max(last, i); }
+    }
+  }
+  if (first >= last) return decoded;
+  first = Math.max(0, first - Math.round(decoded.sampleRate * .005));
+  last = Math.min(decoded.length, last + Math.round(decoded.sampleRate * .04));
+  const trimmed = audio.createBuffer(decoded.numberOfChannels, last - first, decoded.sampleRate);
+  for (let c = 0; c < decoded.numberOfChannels; c++) {
+    trimmed.copyToChannel(decoded.getChannelData(c).subarray(first, last), c);
+  }
+  return trimmed;
+}
+
+function loadBuffer(name: Sound, audio: AudioContext): Promise<AudioBuffer> {
+  const cached = buffers.get(name);
+  if (cached) return cached;
+
+  async function download(cache: RequestCache) {
+    const response = await fetch(import.meta.env.BASE_URL + 'audio/' + files[name], { cache });
+    if (!response.ok) throw new Error('Sound unavailable: ' + response.status);
+    const decoded = await audio.decodeAudioData(await response.arrayBuffer());
+    return name === 'squishy' ? trimSquish(audio, decoded) : decoded;
+  }
+
+  // Concurrent requests share the download. A failed retry leaves the next press free to try again.
+  const loading = download('default').catch(() => download('reload'));
+  buffers.set(name, loading);
+  void loading.catch(() => { if (buffers.get(name) === loading) buffers.delete(name); });
+  return loading;
+}
+
+function initialize() {
+  if (context && context.state !== 'closed') return context;
+  try {
+    const AudioConstructor = window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioConstructor) return;
+    const audio = new AudioConstructor();
+    if (context) {
+      pausePiWind();
+      pending.clear();
+      playing.clear();
+      buffers.clear();
+    }
+    context = audio;
+    lastScrollTick = -Infinity;
+    // Warm frequent short cues. Larger sounds, including the wind loop, load when needed.
+    for (const name of ['bubble', 'squishy', 'hover', 'scroll'] as const) loadBuffer(name, audio);
+    return audio;
+  } catch { /* A trusted gesture can retry if the browser blocked creation. */ }
+}
 
 export function mountSounds() {
   if (mounted) return;
   mounted = true;
-  // Retry on a real gesture if creating the context at page load was blocked.
-  const unlock = () => {
-    if (!context) initialize();
-    if (context) void resumeAudio(context).catch(() => {});
+  const unlock = (event: Event) => {
+    if (!event.isTrusted) return;
+    interacted = true;
+    const audio = initialize();
+    if (audio) void resumeAudio(audio).catch(() => {});
+    if (windWanted) void resumePiWind();
   };
   for (const event of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) {
     document.addEventListener(event, unlock, { capture: true, passive: true });
@@ -26,49 +88,21 @@ export function mountSounds() {
   initialize();
 }
 
-function initialize() {
-  if (context) return;
-  try {
-    const AudioConstructor = window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioConstructor) return;
-    context = new AudioConstructor();
-    const audio = context;
-    for (const name of Object.keys(files) as Sound[]) {
-      const buffer = fetch(import.meta.env.BASE_URL + 'audio/' + files[name])
-        .then(response => { if (!response.ok) throw new Error('Sound unavailable'); return response.arrayBuffer(); })
-        .then(bytes => audio.decodeAudioData(bytes))
-        .then(decoded => {
-          if (name !== 'squishy') return decoded;
-          // Remove recording lead-in/tail so the first audible press meets the dent.
-          let first=decoded.length,last=0;
-          for(let c=0;c<decoded.numberOfChannels;c++){
-            const samples=decoded.getChannelData(c);
-            for(let i=0;i<samples.length;i++)if(Math.abs(samples[i])>.015){first=Math.min(first,i);last=Math.max(last,i);}
-          }
-          if(first>=last)return decoded;
-          first=Math.max(0,first-Math.round(decoded.sampleRate*.005));
-          last=Math.min(decoded.length,last+Math.round(decoded.sampleRate*.04));
-          const trimmed=audio.createBuffer(decoded.numberOfChannels,last-first,decoded.sampleRate);
-          for(let c=0;c<decoded.numberOfChannels;c++)trimmed.copyToChannel(decoded.getChannelData(c).subarray(first,last),c);
-          return trimmed;
-        });
-      buffers.set(name, buffer);
-      void buffer.catch(() => {}); // Audio must never interrupt reading.
-    }
-  } catch { /* Reading still works when audio is unavailable. */ }
-}
-
 export function playSound(name: Sound, durationSeconds?: number) {
-  const audio = context, buffer = buffers.get(name);
-  if (!audio || !buffer || document.hidden || (name === 'hover' && audio.state !== 'running')) return;
+  const audio = context;
+  if (!audio || document.hidden || (audio.state !== 'running' && (!interacted || name === 'hover'))) return;
+  const token = Symbol();
+  pending.set(name, token);
+  if (name === 'squishy') pending.delete('hover');
+  if (name === 'windowUp') pending.delete('windowDown');
+  if (name === 'windowDown') pending.delete('windowUp');
   const requested = performance.now();
   void (async () => {
     try {
-      await resumeAudio(audio);
-      const decoded = await buffer;
-      // Do not play delayed effects after a slow download or background-tab resume.
-      if (audio.state !== 'running' || document.hidden || performance.now() - requested > 400) return;
+      // Resume synchronously during the gesture, while the requested file loads in parallel.
+      const [, decoded] = await Promise.all([resumeAudio(audio), loadBuffer(name, audio)]);
+      if (audio !== context || audio.state !== 'running' || document.hidden || pending.get(name) !== token) return;
+      if (name === 'hover' && performance.now() - requested > 400) return;
       playing.get(name)?.stop();
       if (name === 'squishy') playing.get('hover')?.stop();
       const source = audio.createBufferSource(), gain = audio.createGain();
@@ -84,16 +118,17 @@ export function playSound(name: Sound, durationSeconds?: number) {
       source.onended = () => { source.disconnect(); gain.disconnect(); if (playing.get(name) === source) playing.delete(name); };
       source.start();
     } catch { /* Missing or blocked sound is non-fatal. */ }
+    finally { if (pending.get(name) === token) pending.delete(name); }
   })();
 }
 
 // Keep individual notches distinct even during extremely fast fling gestures.
 let lastScrollTick=-Infinity;
 export function playScrollTicks(count:number){
- const audio=context,buffer=buffers.get('scroll');
- if(!audio||!buffer||audio.state!=='running'||document.hidden||count<1)return;
+ const audio=context;
+ if(!audio||audio.state!=='running'||document.hidden||count<1)return;
  const requested=performance.now();
- void buffer.then(decoded=>{
+ void loadBuffer('scroll',audio).then(decoded=>{
   if(audio.state!=='running'||document.hidden||performance.now()-requested>80)return;
   const now=audio.currentTime;
   if(now-lastScrollTick<Math.max(.075,decoded.duration))return;
@@ -107,29 +142,56 @@ export function playScrollTicks(count:number){
 }
 
 // PI ambience is cancellable even while its audio file is still decoding.
-let windGeneration=0,windWanted=false;
-let windSource:AudioBufferSourceNode|undefined;
-export function stopPiWind(){
- windWanted=false;windGeneration++;windSource?.stop();windSource=undefined;
+let windWanted = false;
+let pendingWind: symbol | undefined;
+let windSource: AudioBufferSourceNode | undefined;
+
+function pausePiWind() {
+  pendingWind = undefined;
+  windSource?.stop();
+  windSource = undefined;
 }
-export function startPiWind(){
- stopPiWind();windWanted=true;void resumePiWind();
+
+export function stopPiWind() {
+  windWanted = false;
+  pausePiWind();
 }
-async function resumePiWind(){
- const audio=context,buffer=buffers.get('wind'),token=++windGeneration;
- if(!audio||!buffer||document.hidden)return;
- try{
-  await resumeAudio(audio);
-  const decoded=await buffer;
-  if(!windWanted||token!==windGeneration||document.hidden||audio.state!=='running')return;
-  const source=audio.createBufferSource(),gain=audio.createGain();
-  source.buffer=decoded;source.loop=true;gain.gain.setValueAtTime(0,audio.currentTime);
-  gain.gain.linearRampToValueAtTime(.405,audio.currentTime+.25);
-  source.connect(gain);gain.connect(audio.destination);windSource=source;
-  source.onended=()=>{source.disconnect();gain.disconnect();};source.start();
- }catch{/* Ambience must not interrupt PI. */}
+
+export function startPiWind() {
+  windWanted = true;
+  void resumePiWind();
 }
-document.addEventListener('visibilitychange',()=>{
- if(document.hidden){windGeneration++;windSource?.stop();windSource=undefined;}
- else if(windWanted)void resumePiWind();
+
+async function resumePiWind() {
+  const audio = context;
+  if (!audio || document.hidden || !windWanted || windSource || pendingWind) return;
+  if (audio.state !== 'running' && !interacted) return;
+  const token = pendingWind = Symbol();
+  try {
+    const [, decoded] = await Promise.all([resumeAudio(audio), loadBuffer('wind', audio)]);
+    if (pendingWind !== token || document.hidden || audio.state !== 'running') return;
+    const source = audio.createBufferSource(), gain = audio.createGain();
+    source.buffer = decoded;
+    source.loop = true;
+    gain.gain.setValueAtTime(0, audio.currentTime);
+    gain.gain.linearRampToValueAtTime(.405, audio.currentTime + .25);
+    source.connect(gain);
+    gain.connect(audio.destination);
+    source.onended = () => {
+      source.disconnect(); gain.disconnect();
+      if (windSource === source) windSource = undefined;
+    };
+    source.start();
+    windSource = source;
+  } catch { /* Retry on the next gesture while the balloon is visible. */ }
+  finally { if (pendingWind === token) pendingWind = undefined; }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    pending.clear();
+    pausePiWind();
+  } else if (windWanted) {
+    void resumePiWind();
+  }
 });

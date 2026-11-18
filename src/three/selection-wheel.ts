@@ -1,4 +1,3 @@
-import {playSound} from '../ui/sounds';
 import * as THREE from 'three';
 import {cushionGeometry,cushionMaterial,cushionWeights} from './cushion';
 import {studio} from './about-assets';
@@ -93,7 +92,6 @@ export async function createSelectionWheel(host:HTMLElement){
         }
         p.position.needsUpdate=true;p.normal.needsUpdate=true;
       }render();}
-      playSound('squishy',cfg.pressSeconds);
       if(matchMedia('(prefers-reduced-motion: reduce)').matches){deform(0);return;}
       return new Promise<void>(resolve=>{
         finish=()=>{deform(0);resolve();};let elapsed=0,last=performance.now();

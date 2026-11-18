@@ -89,7 +89,7 @@ export function mountHighlights(root:HTMLElement,goTo:(location:HighlightLocatio
     const origin=annotationOrigin(),rects=captureMarks(stage,range);
     const token=version,detected=resolveSection(locationOf({page,position,rects})),section=detected.index;
     if(entries.some(e=>e.text===text&&e.page===page&&e.endPage===endPage&&e.section===section))return;
-    const entry:SavedHighlight={id:crypto.randomUUID(),documentId,text,savedAt:Date.now(),page,endPage,section,sectionTitle:detected.title,position,rects};
+    const entry:SavedHighlight={id:crypto.randomUUID(),documentId,text,savedAt:Date.now(),page,endPage,section,sectionTitle:detected.title,position,rects,geometryVersion:2};
     entries.unshift(entry);
     try{await saveHighlight(entry);if(token===version){render();await bounceSavedEaty(root,entry.id,origin);}}catch{if(token===version){entries=entries.filter(e=>e.id!==entry.id);status.textContent='Could not save this highlight. Browser storage may be full.';}throw new Error('Could not save highlight');}
   }
